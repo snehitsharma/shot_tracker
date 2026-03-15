@@ -32,11 +32,12 @@
   </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0a0a0a; color: #e0d5c5; font-family: Georgia, serif; }
-    select option { background: #111; color: #d0c4b0; }
-    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #0a0a0a; } ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+    body { font-family: Georgia, serif; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-thumb { border-radius: 4px; }
     input, textarea, select { font-family: Georgia, serif; }
     textarea { resize: vertical; }
+    a { text-decoration: none; }
   </style>
 </head>
 <body>
@@ -44,13 +45,35 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
-const STATUS_OPTIONS = ["pending", "in-progress", "done"];
-const STATUS_META = {
-  pending:       { border: "#2a2a2a", color: "#555" },
-  "in-progress": { border: "#8B2500", color: "#FF6B35" },
-  done:          { border: "#2d5a00", color: "#7BC142" },
+// ── Theme ─────────────────────────────────────────────────────────────────
+const DARK = {
+  bg: "#0a0a0a", bg2: "#111111", bg3: "#181818", bg4: "#1e1e1e",
+  card: "#0f0f0f", header: "#0d0d0d",
+  text: "#ffffff", text2: "#cccccc", text3: "#999999", text4: "#555555",
+  accent: "#c0392b", accentHover: "#e74c3c", accentBorder: "#8B2500",
+  gold: "#C9A84C", border: "#2a2a2a", border2: "#1a1a1a",
+  inputBg: "#0d0d0d", inputText: "#ffffff",
+  statusPending: { border: "#444", color: "#999" },
+  statusIP:      { border: "#c0392b", color: "#ff6b35" },
+  statusDone:    { border: "#2d7a2d", color: "#5cb85c" },
+  scrollThumb: "#333",
+  shadow: "0 2px 12px rgba(0,0,0,0.6)",
+};
+const LIGHT = {
+  bg: "#f5f5f0", bg2: "#ffffff", bg3: "#eeeeea", bg4: "#e5e5e0",
+  card: "#ffffff", header: "#ffffff",
+  text: "#000000", text2: "#1a1a1a", text3: "#444444", text4: "#888888",
+  accent: "#c0392b", accentHover: "#a93226", accentBorder: "#c0392b",
+  gold: "#9a6b00", border: "#cccccc", border2: "#dddddd",
+  inputBg: "#ffffff", inputText: "#000000",
+  statusPending: { border: "#aaaaaa", color: "#555555" },
+  statusIP:      { border: "#c0392b", color: "#c0392b" },
+  statusDone:    { border: "#2d7a2d", color: "#2d7a2d" },
+  scrollThumb: "#ccc",
+  shadow: "0 2px 12px rgba(0,0,0,0.12)",
 };
 
+const STATUS_OPTIONS = ["pending", "in-progress", "done"];
 const F1_SHOTS = [
   { title: "THE ARRIVAL", narration: "Silence.", description: "Storm clouds, camera cranes down through crimson atmosphere toward stationary F1 car from behind." },
   { title: "THE REVEAL", narration: "Silence. Let the car speak.", description: "Intimate close shot of rear wing. Carbon fibre detail. Flaps in position. Everything still." },
@@ -76,7 +99,7 @@ const F1_SHOTS = [
 const makeShot = (o = {}) => ({ id: crypto.randomUUID(), title: "NEW SHOT", narration: "", description: "", status: "pending", prompts: "", notes: "", imageUrl: "", imageData: "", ...o });
 const makeResource = (o = {}) => ({ id: crypto.randomUUID(), label: "", url: "", context: "", ...o });
 const makeProject = (name, shots = []) => ({ id: crypto.randomUUID(), name, createdAt: Date.now(), shots: shots.length ? shots.map(s => makeShot(s)) : [makeShot()], resources: [] });
-const defaultData = () => ({ projects: [makeProject("F1 Aerodynamics & Downforce", F1_SHOTS)], activeId: null, knowledgeCenter: [], activeTab: "shots" });
+const defaultData = () => ({ projects: [makeProject("F1 Aerodynamics & Downforce", F1_SHOTS)], activeId: null, knowledgeCenter: [], theme: "dark" });
 
 function resizeAndEncode(file, maxW = 1200, q = 0.82) {
   return new Promise((res, rej) => {
@@ -120,13 +143,8 @@ function useTrackerData() {
   return { data, update, saveStatus };
 }
 
-// ── Export / Import helpers ───────────────────────────────────────────────
 function exportProject(project) {
-  const clean = {
-    name: project.name,
-    shots: project.shots.map(s => ({ title: s.title, narration: s.narration, description: s.description, status: s.status, prompts: s.prompts, notes: s.notes, imageUrl: s.imageUrl })),
-    resources: project.resources,
-  };
+  const clean = { name: project.name, shots: project.shots.map(s => ({ title: s.title, narration: s.narration, description: s.description, status: s.status, prompts: s.prompts, notes: s.notes, imageUrl: s.imageUrl })), resources: project.resources };
   const blob = new Blob([JSON.stringify(clean, null, 2)], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
   a.download = `${project.name.replace(/\s+/g, "_")}.json`; a.click();
@@ -137,25 +155,34 @@ function parseImport(text) {
   return makeProject(raw.name || "Imported Project", raw.shots || []);
 }
 
+// ── Theme Toggle ──────────────────────────────────────────────────────────
+function ThemeToggle({ theme, onToggle, t }) {
+  return (
+    <button onClick={onToggle} style={{ background: t.bg3, border: `1px solid ${t.border}`, borderRadius: 24, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: t.text2, fontSize: 15 }}>
+      <span>{theme === "dark" ? "☀️" : "🌙"}</span>
+      <span style={{ fontSize: 13, fontFamily: "Georgia, serif", color: t.text3 }}>{theme === "dark" ? "Light" : "Dark"}</span>
+    </button>
+  );
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────
 function App() {
   const { data, update, saveStatus } = useTrackerData();
   const [showKC, setShowKC] = useState(false);
   if (!data) return <Loading />;
+
+  const t = data.theme === "light" ? LIGHT : DARK;
+  const toggleTheme = () => update(d => ({ ...d, theme: d.theme === "dark" ? "light" : "dark" }));
   const active = data.projects.find(p => p.id === data.activeId) ?? null;
 
-  if (showKC) return (
-    <KnowledgeCenter
-      entries={data.knowledgeCenter || []}
-      onBack={() => setShowKC(false)}
-      onChange={kc => update(d => ({ ...d, knowledgeCenter: kc }))}
-      saveStatus={saveStatus}
-    />
-  );
+  // inject scrollbar color
+  const scrollStyle = document.getElementById("scroll-style") || (() => { const s = document.createElement("style"); s.id = "scroll-style"; document.head.appendChild(s); return s; })();
+  scrollStyle.textContent = `::-webkit-scrollbar-track { background: ${t.bg}; } ::-webkit-scrollbar-thumb { background: ${t.scrollThumb}; } body { background: ${t.bg}; }`;
+
+  if (showKC) return <KnowledgeCenter entries={data.knowledgeCenter || []} onBack={() => setShowKC(false)} onChange={kc => update(d => ({ ...d, knowledgeCenter: kc }))} saveStatus={saveStatus} t={t} theme={data.theme} onToggleTheme={toggleTheme} />;
 
   if (!active) return (
-    <ProjectManager
-      projects={data.projects} saveStatus={saveStatus}
+    <ProjectManager projects={data.projects} saveStatus={saveStatus} t={t} theme={data.theme} onToggleTheme={toggleTheme}
       onOpen={id => update(d => ({ ...d, activeId: id }))}
       onCreate={name => update(d => { const p = makeProject(name); return { ...d, projects: [...d.projects, p], activeId: p.id }; })}
       onRename={(id, name) => update(d => ({ ...d, projects: d.projects.map(p => p.id === id ? { ...p, name } : p) }))}
@@ -166,8 +193,7 @@ function App() {
   );
 
   return (
-    <ShotEditor
-      project={active} saveStatus={saveStatus}
+    <ShotEditor project={active} saveStatus={saveStatus} t={t} theme={data.theme} onToggleTheme={toggleTheme}
       onBack={() => update(d => ({ ...d, activeId: null }))}
       onUpdateProject={proj => update(d => ({ ...d, projects: d.projects.map(p => p.id === active.id ? proj : p) }))}
     />
@@ -175,146 +201,136 @@ function App() {
 }
 
 // ── Project Manager ───────────────────────────────────────────────────────
-function ProjectManager({ projects, saveStatus, onOpen, onCreate, onRename, onDelete, onImport, onKC }) {
+function ProjectManager({ projects, saveStatus, t, theme, onToggleTheme, onOpen, onCreate, onRename, onDelete, onImport, onKC }) {
   const [newName, setNewName] = useState("");
   const [renamingId, setRenamingId] = useState(null);
   const [renameVal, setRenameVal] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [importError, setImportError] = useState("");
-  const fileRef = useRef();
 
   const submit = () => { const n = newName.trim(); if (!n) return; onCreate(n); setNewName(""); };
-
   const handleImport = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      try { onImport(parseImport(ev.target.result)); setImportError(""); }
-      catch { setImportError("Invalid JSON format."); }
-    };
-    reader.readAsText(file);
-    e.target.value = "";
+    reader.onload = ev => { try { onImport(parseImport(ev.target.result)); setImportError(""); } catch { setImportError("Invalid JSON format."); } };
+    reader.readAsText(file); e.target.value = "";
   };
 
   return (
-    <div style={S.page}>
-      <div style={S.pmWrap}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 40 }}>
+    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "Georgia, serif" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "48px 32px 80px" }}>
+        {/* Top bar */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 48 }}>
           <div>
-            <div style={S.eyebrow}>Animation Studio</div>
-            <h1 style={S.h1}>Projects</h1>
-            <SaveDot status={saveStatus} />
+            <div style={{ fontSize: 13, letterSpacing: "0.25em", color: t.accent, textTransform: "uppercase", marginBottom: 6 }}>Animation Studio</div>
+            <h1 style={{ fontSize: 32, fontWeight: "normal", color: t.text, letterSpacing: "0.03em", marginBottom: 6 }}>Projects</h1>
+            <SaveDot status={saveStatus} t={t} />
           </div>
-          <button onClick={onKC} style={{ background: "transparent", border: "1px solid #2a2a2a", borderRadius: 2, color: "#666", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 14px", cursor: "pointer", marginTop: 8 }}>
-            Knowledge Center
-          </button>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 8 }}>
+            <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t} />
+            <Btn t={t} muted onClick={onKC}>Knowledge Center</Btn>
+          </div>
         </div>
 
         {/* Create */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="New project name…" style={S.input} />
-          <Btn onClick={submit} disabled={!newName.trim()}>+ Create</Btn>
+        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+          <input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="New project name…" style={inp(t)} />
+          <Btn t={t} onClick={submit} disabled={!newName.trim()}>+ Create</Btn>
         </div>
 
         {/* Import */}
-        <div style={{ marginBottom: 32 }}>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-            <span style={{ padding: "5px 12px", border: "1px solid #1e1e1e", borderRadius: 2, background: "#0d0d0d" }}>Import JSON</span>
-            <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImport} />
+        <div style={{ marginBottom: 40 }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <span style={{ fontSize: 14, padding: "8px 16px", border: `1px solid ${t.border}`, borderRadius: 4, background: t.bg3, color: t.text3, letterSpacing: "0.05em" }}>Import JSON</span>
+            <input type="file" accept=".json" style={{ display: "none" }} onChange={handleImport} />
           </label>
-          {importError && <div style={{ fontSize: 11, color: "#ff6b6b", marginTop: 6 }}>{importError}</div>}
-          <div style={{ fontSize: 10, color: "#333", marginTop: 8, lineHeight: 1.6 }}>
-            Expected format: <code style={{ color: "#555" }}>{`{ "name": "...", "shots": [{ "title": "...", "narration": "...", "description": "...", "status": "pending", "prompts": "...", "notes": "...", "imageUrl": "" }], "resources": [] }`}</code>
+          {importError && <div style={{ fontSize: 13, color: "#e74c3c", marginTop: 8 }}>{importError}</div>}
+          <div style={{ fontSize: 12, color: t.text4, marginTop: 10, lineHeight: 1.8 }}>
+            Expected: <code style={{ color: t.text3, fontSize: 12 }}>{`{ "name": "...", "shots": [...], "resources": [] }`}</code>
           </div>
         </div>
 
-        {projects.length === 0 && <div style={{ color: "#333", fontSize: 13, fontStyle: "italic" }}>No projects yet.</div>}
+        {/* Projects list */}
+        {projects.length === 0 && <div style={{ color: t.text4, fontSize: 16, fontStyle: "italic" }}>No projects yet. Create one above.</div>}
         {projects.map(p => {
           const done = p.shots.filter(s => s.status === "done").length;
           const pct = p.shots.length ? Math.round((done / p.shots.length) * 100) : 0;
           return (
-            <div key={p.id} style={S.pmCard}>
+            <div key={p.id} style={{ display: "flex", alignItems: "center", padding: "20px 22px", border: `1px solid ${t.border}`, borderRadius: 6, marginBottom: 10, background: t.card, boxShadow: t.shadow, gap: 16 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 {renamingId === p.id
                   ? <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
                       onKeyDown={e => { if (e.key === "Enter") { onRename(p.id, renameVal.trim() || p.name); setRenamingId(null); } if (e.key === "Escape") setRenamingId(null); }}
                       onBlur={() => { onRename(p.id, renameVal.trim() || p.name); setRenamingId(null); }}
-                      style={{ ...S.input, fontSize: 14 }} />
-                  : <div style={{ fontSize: 15, color: "#d0c4b0", cursor: "pointer" }} onClick={() => onOpen(p.id)}>{p.name}</div>
+                      style={{ ...inp(t), fontSize: 17 }} />
+                  : <div style={{ fontSize: 18, color: t.text, cursor: "pointer", fontWeight: "normal", letterSpacing: "0.01em" }} onClick={() => onOpen(p.id)}>{p.name}</div>
                 }
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
-                  <div style={{ flex: 1, height: 2, background: "#1a1a1a", borderRadius: 1 }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg,#8B2500,#C9A84C)", borderRadius: 1, transition: "width .4s" }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 10 }}>
+                  <div style={{ flex: 1, height: 4, background: t.bg3, borderRadius: 2 }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${t.accent}, ${t.gold})`, borderRadius: 2, transition: "width .4s" }} />
                   </div>
-                  <div style={{ fontSize: 10, color: "#555", whiteSpace: "nowrap" }}>{done}/{p.shots.length} shots done</div>
+                  <div style={{ fontSize: 13, color: t.text3, whiteSpace: "nowrap" }}>{done} / {p.shots.length} done</div>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, flexShrink: 0, marginLeft: 16 }}>
-                <Btn small onClick={() => onOpen(p.id)}>Open</Btn>
-                <Btn small muted onClick={() => { setRenamingId(p.id); setRenameVal(p.name); }}>Rename</Btn>
-                <Btn small danger onClick={() => setConfirmDelete(p.id)}>Delete</Btn>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <Btn t={t} small onClick={() => onOpen(p.id)}>Open</Btn>
+                <Btn t={t} small muted onClick={() => { setRenamingId(p.id); setRenameVal(p.name); }}>Rename</Btn>
+                <Btn t={t} small danger onClick={() => setConfirmDelete(p.id)}>Delete</Btn>
               </div>
             </div>
           );
         })}
       </div>
-      {confirmDelete && <Modal title="Delete project?" body={`"${projects.find(p => p.id === confirmDelete)?.name}" and all shots will be removed.`} onConfirm={() => { onDelete(confirmDelete); setConfirmDelete(null); }} onCancel={() => setConfirmDelete(null)} danger />}
+      {confirmDelete && <Modal title="Delete project?" body={`"${projects.find(p => p.id === confirmDelete)?.name}" will be permanently removed.`} onConfirm={() => { onDelete(confirmDelete); setConfirmDelete(null); }} onCancel={() => setConfirmDelete(null)} danger t={t} />}
     </div>
   );
 }
 
 // ── Knowledge Center ──────────────────────────────────────────────────────
-function KnowledgeCenter({ entries, onBack, onChange, saveStatus }) {
+function KnowledgeCenter({ entries, onBack, onChange, saveStatus, t, theme, onToggleTheme }) {
   const addEntry = () => onChange([...entries, makeResource()]);
   const updEntry = (id, field, val) => onChange(entries.map(e => e.id === id ? { ...e, [field]: val } : e));
-  const delEntry = (id) => onChange(entries.filter(e => e.id !== id));
-
   return (
-    <div style={S.page}>
-      <div style={S.header}>
-        <div style={{ maxWidth: 880, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <button onClick={onBack} style={S.backBtn}>← All Projects</button>
-              <div style={S.eyebrow}>Studio-Wide Reference</div>
-              <div style={S.h1}>Knowledge Center</div>
-            </div>
-            <SaveDot status={saveStatus} />
+    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "Georgia, serif" }}>
+      <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "20px 40px", position: "sticky", top: 0, zIndex: 100, boxShadow: t.shadow }}>
+        <div style={{ maxWidth: 880, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <button onClick={onBack} style={{ background: "none", border: "none", color: t.text3, cursor: "pointer", fontSize: 15, padding: 0, marginBottom: 6, letterSpacing: "0.05em" }}>← All Projects</button>
+            <div style={{ fontSize: 13, letterSpacing: "0.2em", color: t.accent, textTransform: "uppercase" }}>Studio-Wide Reference</div>
+            <div style={{ fontSize: 24, color: t.text, fontWeight: "normal", marginTop: 2 }}>Knowledge Center</div>
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <SaveDot status={saveStatus} t={t} />
+            <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t} />
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 880, margin: "0 auto", padding: "24px 40px 60px" }}>
-        <div style={{ fontSize: 12, color: "#444", marginBottom: 24, lineHeight: 1.7 }}>
-          Global reference library for your whole studio — pipeline docs, model specs, how-to guides, anything that applies across projects. Each entry links to a Google Drive file or any URL.
-        </div>
-        {entries.length === 0 && <div style={{ color: "#333", fontSize: 13, fontStyle: "italic", marginBottom: 20 }}>No entries yet.</div>}
+      <div style={{ maxWidth: 880, margin: "0 auto", padding: "28px 40px 80px" }}>
+        <div style={{ fontSize: 15, color: t.text3, marginBottom: 28, lineHeight: 1.8 }}>Global reference library — pipeline docs, model specs, how-to guides. Anything that applies across all your projects.</div>
+        {entries.length === 0 && <div style={{ color: t.text4, fontSize: 15, fontStyle: "italic", marginBottom: 20 }}>No entries yet.</div>}
         {entries.map(entry => (
-          <div key={entry.id} style={{ marginBottom: 8, border: "1px solid #181818", borderRadius: 3, background: "#0d0d0d", padding: "14px 16px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-              <Field label="Label">
-                <input value={entry.label} onChange={e => updEntry(entry.id, "label", e.target.value)} placeholder="e.g. Blender Pipeline Guide" style={S.input} />
-              </Field>
-              <Field label="URL (Drive, Notion, etc.)">
-                <input value={entry.url} onChange={e => updEntry(entry.id, "url", e.target.value)} placeholder="https://drive.google.com/…" style={S.input} />
-              </Field>
+          <div key={entry.id} style={{ marginBottom: 10, border: `1px solid ${t.border}`, borderRadius: 6, background: t.card, padding: "18px 20px", boxShadow: t.shadow }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <Field label="Label" t={t}><input value={entry.label} onChange={e => updEntry(entry.id, "label", e.target.value)} placeholder="e.g. Blender Pipeline Guide" style={inp(t)} /></Field>
+              <Field label="URL" t={t}><input value={entry.url} onChange={e => updEntry(entry.id, "url", e.target.value)} placeholder="https://drive.google.com/…" style={inp(t)} /></Field>
             </div>
-            <Field label="Context / Description">
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                <input value={entry.context} onChange={e => updEntry(entry.id, "context", e.target.value)} placeholder="What is this? When should you use it?" style={{ ...S.input, flex: 1 }} />
-                {entry.url && <a href={entry.url} target="_blank" rel="noreferrer" style={{ padding: "7px 14px", background: "#1a0000", border: "1px solid #3d0000", borderRadius: 2, color: "#FF6B35", fontSize: 11, textDecoration: "none", whiteSpace: "nowrap", letterSpacing: "0.08em" }}>Open →</a>}
-                <button onClick={() => delEntry(entry.id)} style={{ background: "none", border: "1px solid #2a0000", borderRadius: 2, color: "#555", cursor: "pointer", fontSize: 12, padding: "6px 10px" }}>×</button>
+            <Field label="Description" t={t}>
+              <div style={{ display: "flex", gap: 10 }}>
+                <input value={entry.context} onChange={e => updEntry(entry.id, "context", e.target.value)} placeholder="What is this? When should you use it?" style={{ ...inp(t), flex: 1 }} />
+                {entry.url && <a href={entry.url} target="_blank" rel="noreferrer" style={{ padding: "10px 18px", background: t.accent, borderRadius: 4, color: "#fff", fontSize: 14, whiteSpace: "nowrap" }}>Open →</a>}
+                <button onClick={() => onChange(entries.filter(e => e.id !== entry.id))} style={{ background: "none", border: `1px solid ${t.border}`, borderRadius: 4, color: t.text3, cursor: "pointer", fontSize: 18, padding: "6px 14px" }}>×</button>
               </div>
             </Field>
           </div>
         ))}
-        <div style={{ marginTop: 16 }}><Btn onClick={addEntry}>+ Add Entry</Btn></div>
+        <div style={{ marginTop: 20 }}><Btn t={t} onClick={addEntry}>+ Add Entry</Btn></div>
       </div>
     </div>
   );
 }
 
 // ── Shot Editor ───────────────────────────────────────────────────────────
-function ShotEditor({ project, saveStatus, onBack, onUpdateProject }) {
+function ShotEditor({ project, saveStatus, t, theme, onToggleTheme, onBack, onUpdateProject }) {
   const [tab, setTab] = useState("shots");
   const [expanded, setExpanded] = useState(null);
   const [filter, setFilter] = useState("all");
@@ -325,9 +341,8 @@ function ShotEditor({ project, saveStatus, onBack, onUpdateProject }) {
 
   const shots = project.shots;
   const resources = project.resources || [];
-
-  const updShots = (s) => onUpdateProject({ ...project, shots: s });
-  const updResources = (r) => onUpdateProject({ ...project, resources: r });
+  const updShots = s => onUpdateProject({ ...project, shots: s });
+  const updResources = r => onUpdateProject({ ...project, resources: r });
   const upd = (id, field, value) => updShots(shots.map(s => s.id === id ? { ...s, [field]: value } : s));
   const addShot = () => { const s = makeShot(); updShots([...shots, s]); setExpanded(s.id); };
   const deleteShot = id => { updShots(shots.filter(s => s.id !== id)); if (expanded === id) setExpanded(null); setConfirmDelete(null); };
@@ -352,133 +367,144 @@ function ShotEditor({ project, saveStatus, onBack, onUpdateProject }) {
   const counts = { pending: shots.filter(s => s.status === "pending").length, "in-progress": shots.filter(s => s.status === "in-progress").length, done: shots.filter(s => s.status === "done").length };
   const progress = shots.length ? Math.round((counts.done / shots.length) * 100) : 0;
   const filtered = filter === "all" ? shots : shots.filter(s => s.status === filter);
+  const smeta = { pending: t.statusPending, "in-progress": t.statusIP, done: t.statusDone };
 
   return (
-    <div style={S.page}>
-      <div style={S.header}>
-        <div style={{ maxWidth: 880, margin: "0 auto" }}>
+    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "Georgia, serif" }}>
+      {/* Header */}
+      <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "20px 40px", position: "sticky", top: 0, zIndex: 100, boxShadow: t.shadow }}>
+        <div style={{ maxWidth: 940, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <button onClick={onBack} style={S.backBtn}>← All Projects</button>
-              <div style={S.eyebrow}>Production Pipeline</div>
-              <div style={S.h1}>{project.name}</div>
+              <button onClick={onBack} style={{ background: "none", border: "none", color: t.text3, cursor: "pointer", fontSize: 15, padding: 0, marginBottom: 6 }}>← All Projects</button>
+              <div style={{ fontSize: 12, letterSpacing: "0.2em", color: t.accent, textTransform: "uppercase" }}>Production Pipeline</div>
+              <div style={{ fontSize: 24, color: t.text, fontWeight: "normal", marginTop: 2 }}>{project.name}</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-              <div style={{ fontSize: 28, fontWeight: "bold", color: "#C9A84C", lineHeight: 1 }}>{progress}%</div>
-              <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em" }}>Complete</div>
-              <SaveDot status={saveStatus} />
-              <button onClick={() => exportProject(project)} style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid #2a2a2a", borderRadius: 2, color: "#555", padding: "4px 10px", cursor: "pointer" }}>Export JSON</button>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t} />
+                <button onClick={() => exportProject(project)} style={{ fontSize: 13, background: t.bg3, border: `1px solid ${t.border}`, borderRadius: 4, color: t.text3, padding: "8px 16px", cursor: "pointer" }}>Export JSON</button>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ fontSize: 30, fontWeight: "bold", color: t.gold }}>{progress}%</div>
+                <div>
+                  <div style={{ fontSize: 12, color: t.text4, textTransform: "uppercase", letterSpacing: "0.1em" }}>Complete</div>
+                  <SaveDot status={saveStatus} t={t} />
+                </div>
+              </div>
             </div>
           </div>
-          <div style={{ marginTop: 14, height: 2, background: "#1a1a1a", borderRadius: 1 }}>
-            <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg,#8B2500,#C9A84C)", borderRadius: 1, transition: "width .5s" }} />
+          {/* Progress bar */}
+          <div style={{ marginTop: 14, height: 4, background: t.bg3, borderRadius: 2 }}>
+            <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg, ${t.accent}, ${t.gold})`, borderRadius: 2, transition: "width .5s" }} />
           </div>
           {/* Tabs */}
-          <div style={{ display: "flex", gap: 0, marginTop: 16, borderBottom: "1px solid #1a1a1a" }}>
-            {["shots", "resources"].map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{ padding: "6px 20px", background: "transparent", border: "none", borderBottom: `2px solid ${tab === t ? "#8B2500" : "transparent"}`, color: tab === t ? "#d0c4b0" : "#444", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", marginBottom: "-1px" }}>{t}</button>
+          <div style={{ display: "flex", gap: 0, marginTop: 18, borderBottom: `1px solid ${t.border2}`, alignItems: "center" }}>
+            {["shots", "resources"].map(tb => (
+              <button key={tb} onClick={() => setTab(tb)} style={{ padding: "8px 22px", background: "transparent", border: "none", borderBottom: `3px solid ${tab === tb ? t.accent : "transparent"}`, color: tab === tb ? t.text : t.text4, fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", marginBottom: "-1px", transition: "color 0.2s" }}>{tb}</button>
             ))}
             {tab === "shots" && (
-              <div style={{ display: "flex", gap: 6, marginLeft: 16, alignItems: "center", paddingBottom: 4 }}>
+              <div style={{ display: "flex", gap: 6, marginLeft: 16, paddingBottom: 6 }}>
                 {[["all", `All ${shots.length}`], ["pending", `Pending ${counts.pending}`], ["in-progress", `In Progress ${counts["in-progress"]}`], ["done", `Done ${counts.done}`]].map(([v, l]) => (
-                  <button key={v} onClick={() => setFilter(v)} style={{ padding: "3px 10px", background: filter === v ? "#8B2500" : "transparent", border: `1px solid ${filter === v ? "#8B2500" : "#222"}`, borderRadius: 2, color: filter === v ? "#f0e6d0" : "#444", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}>{l}</button>
+                  <button key={v} onClick={() => setFilter(v)} style={{ padding: "5px 12px", background: filter === v ? t.accent : "transparent", border: `1px solid ${filter === v ? t.accent : t.border}`, borderRadius: 4, color: filter === v ? "#fff" : t.text4, fontSize: 13, cursor: "pointer" }}>{l}</button>
                 ))}
               </div>
             )}
             <div style={{ flex: 1 }} />
-            {tab === "shots" && <div style={{ display: "flex", alignItems: "center", paddingBottom: 4 }}><Btn small onClick={addShot}>+ Add Shot</Btn></div>}
-            {tab === "resources" && <div style={{ display: "flex", alignItems: "center", paddingBottom: 4 }}><Btn small onClick={() => updResources([...resources, makeResource()])}>+ Add Resource</Btn></div>}
+            <div style={{ paddingBottom: 6 }}>
+              {tab === "shots" && <Btn t={t} small onClick={addShot}>+ Add Shot</Btn>}
+              {tab === "resources" && <Btn t={t} small onClick={() => updResources([...resources, makeResource()])}>+ Add Resource</Btn>}
+            </div>
           </div>
         </div>
       </div>
 
-      <div style={{ maxWidth: 880, margin: "0 auto", padding: "18px 40px 60px" }}>
-        {/* ── Shots tab ── */}
+      <div style={{ maxWidth: 940, margin: "0 auto", padding: "22px 40px 80px" }}>
+        {/* Shots */}
         {tab === "shots" && <>
-          {filtered.length === 0 && <div style={{ color: "#333", fontSize: 13, fontStyle: "italic", padding: "20px 0" }}>No shots here.</div>}
+          {filtered.length === 0 && <div style={{ color: t.text4, fontSize: 15, fontStyle: "italic", padding: "24px 0" }}>No shots here.</div>}
           {filtered.map((shot, idx) => {
             const isOpen = expanded === shot.id;
-            const sm = STATUS_META[shot.status];
+            const sm = smeta[shot.status];
             const imgSrc = shot.imageData || shot.imageUrl || null;
             return (
               <div key={shot.id} draggable onDragStart={() => onDragStart(shot.id)} onDragEnd={onDragEnd}
                 onDragOver={e => { e.preventDefault(); setDragOver(shot.id); }} onDrop={() => onDrop(shot.id)}
-                style={{ marginBottom: 6, border: `1px solid ${dragOver === shot.id ? "#8B2500" : isOpen ? "#2a0000" : "#181818"}`, borderRadius: 3, background: isOpen ? "#0f0f0f" : "#0c0c0c", opacity: dragging === shot.id ? 0.4 : 1, transition: "opacity 0.15s, border-color 0.15s" }}>
-                <div onClick={() => setExpanded(isOpen ? null : shot.id)} style={{ display: "flex", alignItems: "center", padding: "11px 16px", cursor: "pointer", gap: 12 }}>
-                  <div style={{ color: "#2a2a2a", cursor: "grab", fontSize: 12, flexShrink: 0, userSelect: "none" }}>⠿</div>
-                  <div style={{ minWidth: 30, height: 30, border: "1px solid #1e1e1e", borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#C9A84C", fontFamily: "monospace", flexShrink: 0 }}>{idx + 1}</div>
-                  {imgSrc && <img src={imgSrc} style={{ width: 48, height: 30, objectFit: "cover", borderRadius: 2, flexShrink: 0, border: "1px solid #2a2a2a" }} onError={e => e.target.style.display = "none"} />}
+                style={{ marginBottom: 8, border: `1px solid ${dragOver === shot.id ? t.accent : isOpen ? t.accentBorder : t.border}`, borderRadius: 6, background: t.card, opacity: dragging === shot.id ? 0.4 : 1, boxShadow: t.shadow, transition: "border-color 0.15s" }}>
+                {/* Row */}
+                <div onClick={() => setExpanded(isOpen ? null : shot.id)} style={{ display: "flex", alignItems: "center", padding: "14px 18px", cursor: "pointer", gap: 14 }}>
+                  <div style={{ color: t.text4, cursor: "grab", fontSize: 16, flexShrink: 0, userSelect: "none" }}>⠿</div>
+                  <div style={{ minWidth: 36, height: 36, border: `1px solid ${t.border}`, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: t.gold, fontFamily: "monospace", flexShrink: 0, fontWeight: "bold" }}>{idx + 1}</div>
+                  {imgSrc && <img src={imgSrc} style={{ width: 56, height: 36, objectFit: "cover", borderRadius: 3, flexShrink: 0, border: `1px solid ${t.border}` }} onError={e => e.target.style.display = "none"} />}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, letterSpacing: "0.08em", color: "#ccc", textTransform: "uppercase" }}>{shot.title}</div>
-                    {!isOpen && <div style={{ fontSize: 11, color: "#333", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shot.description || "—"}</div>}
+                    <div style={{ fontSize: 15, letterSpacing: "0.06em", color: t.text, textTransform: "uppercase", fontWeight: "normal" }}>{shot.title}</div>
+                    {!isOpen && <div style={{ fontSize: 13, color: t.text4, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shot.description || "—"}</div>}
                   </div>
                   <select value={shot.status} onChange={e => { e.stopPropagation(); upd(shot.id, "status", e.target.value); }} onClick={e => e.stopPropagation()}
-                    style={{ background: "transparent", border: `1px solid ${sm.border}`, color: sm.color, padding: "3px 8px", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", borderRadius: 2, cursor: "pointer", flexShrink: 0 }}>
+                    style={{ background: t.bg3, border: `2px solid ${sm.border}`, color: sm.color, padding: "6px 12px", fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", borderRadius: 4, cursor: "pointer", flexShrink: 0, fontWeight: "bold" }}>
                     {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
-                  <button onClick={e => { e.stopPropagation(); setConfirmDelete(shot.id); }} style={{ background: "none", border: "none", color: "#2a2a2a", cursor: "pointer", fontSize: 14, padding: "0 4px", flexShrink: 0 }}>×</button>
-                  <div style={{ color: "#2a2a2a", fontSize: 9, flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</div>
+                  <button onClick={e => { e.stopPropagation(); setConfirmDelete(shot.id); }} style={{ background: "none", border: `1px solid ${t.border}`, borderRadius: 4, color: t.text4, cursor: "pointer", fontSize: 18, padding: "4px 10px", flexShrink: 0 }}>×</button>
+                  <div style={{ color: t.text4, fontSize: 11, flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</div>
                 </div>
+                {/* Expanded */}
                 {isOpen && (
-                  <div style={{ padding: "0 16px 16px", borderTop: "1px solid #141414" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
-                      <Field label="Shot Title"><input value={shot.title} onChange={e => upd(shot.id, "title", e.target.value)} style={{ ...S.input, textTransform: "uppercase", letterSpacing: "0.08em" }} /></Field>
-                      <Field label="Status">
-                        <select value={shot.status} onChange={e => upd(shot.id, "status", e.target.value)} style={{ ...S.input, color: STATUS_META[shot.status].color, border: `1px solid ${STATUS_META[shot.status].border}` }}>
+                  <div style={{ padding: "0 18px 20px", borderTop: `1px solid ${t.border2}` }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 18 }}>
+                      <Field label="Shot Title" t={t}><input value={shot.title} onChange={e => upd(shot.id, "title", e.target.value)} style={{ ...inp(t), textTransform: "uppercase", letterSpacing: "0.06em" }} /></Field>
+                      <Field label="Status" t={t}>
+                        <select value={shot.status} onChange={e => upd(shot.id, "status", e.target.value)} style={{ ...inp(t), color: smeta[shot.status].color, border: `2px solid ${smeta[shot.status].border}`, fontWeight: "bold" }}>
                           {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                       </Field>
                     </div>
-                    <Field label="Reference Image" mt={14}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 12px", border: "1px dashed #2a2a2a", borderRadius: 2, background: "#080808" }}>
-                          <span style={{ fontSize: 11, color: "#555" }}>{uploading[shot.id] ? "Processing…" : "Upload image from device"}</span>
+                    <Field label="Reference Image" t={t} mt={18}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "12px 16px", border: `1px dashed ${t.border}`, borderRadius: 4, background: t.bg3 }}>
+                          <span style={{ fontSize: 14, color: t.text3 }}>{uploading[shot.id] ? "Processing…" : "Upload image from device"}</span>
                           <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => handleUpload(shot.id, e.target.files[0])} />
-                          {!uploading[shot.id] && <span style={{ fontSize: 10, color: "#8B2500", marginLeft: "auto" }}>Browse</span>}
+                          {!uploading[shot.id] && <span style={{ fontSize: 13, color: t.accent, marginLeft: "auto" }}>Browse</span>}
                         </label>
-                        <input value={shot.imageUrl} onChange={e => { upd(shot.id, "imageUrl", e.target.value); if (e.target.value) upd(shot.id, "imageData", ""); }} placeholder="…or paste a URL (Google Drive direct link, etc.)" style={{ ...S.input, fontSize: 12 }} />
-                        {(shot.imageData || shot.imageUrl) && <button onClick={() => { upd(shot.id, "imageData", ""); upd(shot.id, "imageUrl", ""); }} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 11, textAlign: "left", padding: 0 }}>× Remove image</button>}
+                        <input value={shot.imageUrl} onChange={e => { upd(shot.id, "imageUrl", e.target.value); if (e.target.value) upd(shot.id, "imageData", ""); }} placeholder="…or paste a URL (Google Drive, etc.)" style={inp(t)} />
+                        {(shot.imageData || shot.imageUrl) && <button onClick={() => { upd(shot.id, "imageData", ""); upd(shot.id, "imageUrl", ""); }} style={{ background: "none", border: "none", color: t.text4, cursor: "pointer", fontSize: 13, textAlign: "left", padding: 0 }}>× Remove image</button>}
                       </div>
-                      {imgSrc && <div style={{ marginTop: 10 }}><img src={imgSrc} style={{ maxWidth: "100%", maxHeight: 240, objectFit: "contain", borderRadius: 3, border: "1px solid #1e1e1e" }} onError={e => e.target.style.display = "none"} /></div>}
+                      {imgSrc && <div style={{ marginTop: 12 }}><img src={imgSrc} style={{ maxWidth: "100%", maxHeight: 260, objectFit: "contain", borderRadius: 4, border: `1px solid ${t.border}` }} onError={e => e.target.style.display = "none"} /></div>}
                     </Field>
-                    <Field label="Scene Description" mt={14}><Textarea value={shot.description} onChange={v => upd(shot.id, "description", v)} placeholder="What happens visually in this shot…" /></Field>
-                    <Field label="Narration / VO" mt={12}><Textarea value={shot.narration} onChange={v => upd(shot.id, "narration", v)} placeholder="Voice-over or silence notes…" /></Field>
-                    <Field label="Image Prompts" mt={12}><Textarea value={shot.prompts} onChange={v => upd(shot.id, "prompts", v)} placeholder="Paste generation prompts here — one per frame…" mono /></Field>
-                    <Field label="Notes & Thoughts" mt={12}><Textarea value={shot.notes} onChange={v => upd(shot.id, "notes", v)} placeholder="Framing ideas, references, problems to solve…" /></Field>
+                    <Field label="Scene Description" t={t} mt={18}><Textarea value={shot.description} onChange={v => upd(shot.id, "description", v)} placeholder="What happens visually in this shot…" t={t} /></Field>
+                    <Field label="Narration / VO" t={t} mt={14}><Textarea value={shot.narration} onChange={v => upd(shot.id, "narration", v)} placeholder="Voice-over or silence notes…" t={t} /></Field>
+                    <Field label="Image Prompts" t={t} mt={14}><Textarea value={shot.prompts} onChange={v => upd(shot.id, "prompts", v)} placeholder="Paste generation prompts here — one per frame…" mono t={t} /></Field>
+                    <Field label="Notes & Thoughts" t={t} mt={14}><Textarea value={shot.notes} onChange={v => upd(shot.id, "notes", v)} placeholder="Framing ideas, references, problems to solve…" t={t} /></Field>
                   </div>
                 )}
               </div>
             );
           })}
-          <div style={{ marginTop: 16 }}><Btn onClick={addShot}>+ Add Shot</Btn></div>
+          <div style={{ marginTop: 20 }}><Btn t={t} onClick={addShot}>+ Add Shot</Btn></div>
         </>}
 
-        {/* ── Resources tab ── */}
+        {/* Resources */}
         {tab === "resources" && <>
-          <div style={{ fontSize: 12, color: "#444", marginBottom: 20, lineHeight: 1.7 }}>
-            Project-specific references — character sheets, Blender source files, mood boards, Drive folders for this video only.
-          </div>
-          {resources.length === 0 && <div style={{ color: "#333", fontSize: 13, fontStyle: "italic", marginBottom: 20 }}>No resources yet.</div>}
+          <div style={{ fontSize: 15, color: t.text3, marginBottom: 24, lineHeight: 1.8 }}>Project-specific references — character sheets, Blender source files, mood boards, Drive folders for this video only.</div>
+          {resources.length === 0 && <div style={{ color: t.text4, fontSize: 15, fontStyle: "italic", marginBottom: 20 }}>No resources yet.</div>}
           {resources.map(r => (
-            <div key={r.id} style={{ marginBottom: 8, border: "1px solid #181818", borderRadius: 3, background: "#0d0d0d", padding: "14px 16px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                <Field label="Label"><input value={r.label} onChange={e => updResources(resources.map(x => x.id === r.id ? { ...x, label: e.target.value } : x))} placeholder="e.g. Character Reference Sheet" style={S.input} /></Field>
-                <Field label="URL"><input value={r.url} onChange={e => updResources(resources.map(x => x.id === r.id ? { ...x, url: e.target.value } : x))} placeholder="https://drive.google.com/…" style={S.input} /></Field>
+            <div key={r.id} style={{ marginBottom: 10, border: `1px solid ${t.border}`, borderRadius: 6, background: t.card, padding: "18px 20px", boxShadow: t.shadow }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                <Field label="Label" t={t}><input value={r.label} onChange={e => updResources(resources.map(x => x.id === r.id ? { ...x, label: e.target.value } : x))} placeholder="e.g. Character Reference Sheet" style={inp(t)} /></Field>
+                <Field label="URL" t={t}><input value={r.url} onChange={e => updResources(resources.map(x => x.id === r.id ? { ...x, url: e.target.value } : x))} placeholder="https://drive.google.com/…" style={inp(t)} /></Field>
               </div>
-              <Field label="Context">
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input value={r.context} onChange={e => updResources(resources.map(x => x.id === r.id ? { ...x, context: e.target.value } : x))} placeholder="What is this file? How is it used?" style={{ ...S.input, flex: 1 }} />
-                  {r.url && <a href={r.url} target="_blank" rel="noreferrer" style={{ padding: "7px 14px", background: "#1a0000", border: "1px solid #3d0000", borderRadius: 2, color: "#FF6B35", fontSize: 11, textDecoration: "none", whiteSpace: "nowrap", letterSpacing: "0.08em" }}>Open →</a>}
-                  <button onClick={() => updResources(resources.filter(x => x.id !== r.id))} style={{ background: "none", border: "1px solid #2a0000", borderRadius: 2, color: "#555", cursor: "pointer", fontSize: 12, padding: "6px 10px" }}>×</button>
+              <Field label="Context" t={t}>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <input value={r.context} onChange={e => updResources(resources.map(x => x.id === r.id ? { ...x, context: e.target.value } : x))} placeholder="What is this file? How is it used?" style={{ ...inp(t), flex: 1 }} />
+                  {r.url && <a href={r.url} target="_blank" rel="noreferrer" style={{ padding: "10px 18px", background: t.accent, borderRadius: 4, color: "#fff", fontSize: 14, whiteSpace: "nowrap" }}>Open →</a>}
+                  <button onClick={() => updResources(resources.filter(x => x.id !== r.id))} style={{ background: "none", border: `1px solid ${t.border}`, borderRadius: 4, color: t.text3, cursor: "pointer", fontSize: 18, padding: "6px 14px" }}>×</button>
                 </div>
               </Field>
             </div>
           ))}
-          <div style={{ marginTop: 16 }}><Btn onClick={() => updResources([...resources, makeResource()])}>+ Add Resource</Btn></div>
+          <div style={{ marginTop: 20 }}><Btn t={t} onClick={() => updResources([...resources, makeResource()])}>+ Add Resource</Btn></div>
         </>}
       </div>
-
-      {confirmDelete && <Modal title="Delete shot?" body={`"${shots.find(s => s.id === confirmDelete)?.title}" will be permanently removed.`} onConfirm={() => deleteShot(confirmDelete)} onCancel={() => setConfirmDelete(null)} danger />}
+      {confirmDelete && <Modal title="Delete shot?" body={`"${shots.find(s => s.id === confirmDelete)?.title}" will be permanently removed.`} onConfirm={() => deleteShot(confirmDelete)} onCancel={() => setConfirmDelete(null)} danger t={t} />}
     </div>
   );
 }
@@ -486,46 +512,54 @@ function ShotEditor({ project, saveStatus, onBack, onUpdateProject }) {
 // ── Shared ────────────────────────────────────────────────────────────────
 const Loading = () => (
   <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-    <div style={{ color: "#333", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>Connecting to Firebase…</div>
+    <div style={{ color: "#555", fontSize: 14, letterSpacing: "0.2em", textTransform: "uppercase" }}>Connecting…</div>
   </div>
 );
-const SaveDot = ({ status }) => {
-  const c = status === "saved" ? "#2d5a00" : status === "saving" ? "#6B5000" : "#8B0000";
-  return <div style={{ fontSize: 9, color: c, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>{status === "saved" ? "● Saved" : status === "saving" ? "● Saving…" : "● Save error"}</div>;
+
+const SaveDot = ({ status, t }) => {
+  const c = status === "saved" ? "#2ecc71" : status === "saving" ? "#f39c12" : "#e74c3c";
+  const l = status === "saved" ? "● Saved" : status === "saving" ? "● Saving…" : "● Error";
+  return <div style={{ fontSize: 12, color: c, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 2 }}>{l}</div>;
 };
-const Field = ({ label, children, mt = 0 }) => (
+
+const Field = ({ label, children, t, mt = 0 }) => (
   <div style={{ marginTop: mt }}>
-    <div style={{ fontSize: 9, letterSpacing: "0.25em", color: "#8B2500", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+    <div style={{ fontSize: 11, letterSpacing: "0.2em", color: t.accent, textTransform: "uppercase", marginBottom: 8, fontWeight: "normal" }}>{label}</div>
     {children}
   </div>
 );
-const Textarea = ({ value, onChange, placeholder, mono }) => (
+
+const Textarea = ({ value, onChange, placeholder, mono, t }) => (
   <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3}
-    style={{ width: "100%", background: "#080808", border: "1px solid #1a1a1a", borderRadius: 2, color: "#b0a080", fontSize: 12, padding: "8px 11px", fontFamily: mono ? "monospace" : "Georgia, serif", lineHeight: 1.7, boxSizing: "border-box", outline: "none" }} />
+    style={{ width: "100%", background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 4, color: t.inputText, fontSize: 15, padding: "10px 13px", fontFamily: mono ? "monospace" : "Georgia, serif", lineHeight: 1.8, boxSizing: "border-box", outline: "none" }} />
 );
-const Btn = ({ children, onClick, disabled, small, muted, danger }) => (
-  <button onClick={onClick} disabled={disabled} style={{ padding: small ? "4px 12px" : "7px 18px", background: danger ? "#3d0000" : muted ? "transparent" : "#8B2500", border: `1px solid ${danger ? "#8B0000" : muted ? "#2a2a2a" : "#8B2500"}`, borderRadius: 2, color: danger ? "#ff6b6b" : muted ? "#555" : "#f0e6d0", fontSize: small ? 10 : 12, letterSpacing: "0.08em", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, whiteSpace: "nowrap" }}>{children}</button>
+
+const Btn = ({ children, onClick, disabled, small, muted, danger, t }) => (
+  <button onClick={onClick} disabled={disabled} style={{
+    padding: small ? "7px 16px" : "10px 22px",
+    background: danger ? (t.bg === "#0a0a0a" ? "#3d0000" : "#fdecea") : muted ? "transparent" : t.accent,
+    border: `1px solid ${danger ? "#c0392b" : muted ? t.border : t.accent}`,
+    borderRadius: 4, color: danger ? "#e74c3c" : muted ? t.text3 : "#ffffff",
+    fontSize: small ? 13 : 15, letterSpacing: "0.05em",
+    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, whiteSpace: "nowrap",
+  }}>{children}</button>
 );
-const Modal = ({ title, body, onConfirm, onCancel, danger }) => (
-  <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
-    <div style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: 4, padding: 28, maxWidth: 380, width: "90%" }}>
-      <div style={{ fontSize: 14, color: "#d0c4b0", marginBottom: 10 }}>{title}</div>
-      <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6, marginBottom: 22 }}>{body}</div>
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}><Btn muted onClick={onCancel}>Cancel</Btn><Btn danger={danger} onClick={onConfirm}>Delete</Btn></div>
+
+const Modal = ({ title, body, onConfirm, onCancel, danger, t }) => (
+  <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+    <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 8, padding: 32, maxWidth: 400, width: "90%", boxShadow: t.shadow }}>
+      <div style={{ fontSize: 18, color: t.text, marginBottom: 12 }}>{title}</div>
+      <div style={{ fontSize: 14, color: t.text3, lineHeight: 1.7, marginBottom: 28 }}>{body}</div>
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <Btn muted onClick={onCancel} t={t}>Cancel</Btn>
+        <Btn danger={danger} onClick={onConfirm} t={t}>Delete</Btn>
+      </div>
     </div>
   </div>
 );
 
-const S = {
-  page: { minHeight: "100vh", background: "#0a0a0a", color: "#e0d5c5", fontFamily: "Georgia, serif" },
-  header: { background: "linear-gradient(180deg,#1a0000 0%,#0a0a0a 100%)", borderBottom: "1px solid #2a0000", padding: "24px 40px 18px", position: "sticky", top: 0, zIndex: 100 },
-  pmWrap: { maxWidth: 700, margin: "0 auto", padding: "48px 40px 60px" },
-  eyebrow: { fontSize: 10, letterSpacing: "0.3em", color: "#8B2500", textTransform: "uppercase", marginBottom: 4 },
-  h1: { fontSize: 20, color: "#f0e6d0", letterSpacing: "0.04em", margin: 0, fontWeight: "normal" },
-  backBtn: { background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 11, letterSpacing: "0.1em", padding: 0, marginBottom: 10, textTransform: "uppercase" },
-  input: { width: "100%", background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 2, color: "#d0c4b0", fontSize: 13, padding: "7px 11px", fontFamily: "Georgia, serif", outline: "none", boxSizing: "border-box" },
-  pmCard: { display: "flex", alignItems: "center", padding: "16px 18px", border: "1px solid #1a1a1a", borderRadius: 3, marginBottom: 8, background: "#0d0d0d" },
-};
+// ── Style helpers ─────────────────────────────────────────────────────────
+const inp = (t) => ({ width: "100%", background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 4, color: t.inputText, fontSize: 15, padding: "10px 13px", fontFamily: "Georgia, serif", outline: "none", boxSizing: "border-box" });
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
