@@ -45,523 +45,569 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
-// ── Theme ─────────────────────────────────────────────────────────────────
 const DARK = {
-  bg: "#0a0a0a", bg2: "#111111", bg3: "#181818", bg4: "#1e1e1e",
-  card: "#0f0f0f", header: "#0d0d0d",
-  text: "#ffffff", text2: "#cccccc", text3: "#999999", text4: "#555555",
-  accent: "#c0392b", accentHover: "#e74c3c", accentBorder: "#8B2500",
-  gold: "#C9A84C", border: "#2a2a2a", border2: "#1a1a1a",
-  inputBg: "#0d0d0d", inputText: "#ffffff",
-  statusPending: { border: "#444", color: "#999" },
-  statusIP:      { border: "#c0392b", color: "#ff6b35" },
-  statusDone:    { border: "#2d7a2d", color: "#5cb85c" },
-  scrollThumb: "#333",
-  shadow: "0 2px 12px rgba(0,0,0,0.6)",
+  bg:"#0a0a0a",bg2:"#111",bg3:"#181818",card:"#0f0f0f",
+  text:"#ffffff",text2:"#cccccc",text3:"#999",text4:"#555",
+  accent:"#c0392b",gold:"#C9A84C",border:"#2a2a2a",border2:"#1a1a1a",
+  inputBg:"#0d0d0d",inputText:"#ffffff",
+  sP:{border:"#444",color:"#999"},sI:{border:"#c0392b",color:"#ff6b35"},sD:{border:"#2d7a2d",color:"#5cb85c"},
+  scrollThumb:"#333",shadow:"0 2px 12px rgba(0,0,0,0.6)",subBg:"#0a0a0a",subBorder:"#2a2a2a",
 };
 const LIGHT = {
-  bg: "#f5f5f0", bg2: "#ffffff", bg3: "#eeeeea", bg4: "#e5e5e0",
-  card: "#ffffff", header: "#ffffff",
-  text: "#000000", text2: "#1a1a1a", text3: "#444444", text4: "#888888",
-  accent: "#c0392b", accentHover: "#a93226", accentBorder: "#c0392b",
-  gold: "#9a6b00", border: "#cccccc", border2: "#dddddd",
-  inputBg: "#ffffff", inputText: "#000000",
-  statusPending: { border: "#aaaaaa", color: "#555555" },
-  statusIP:      { border: "#c0392b", color: "#c0392b" },
-  statusDone:    { border: "#2d7a2d", color: "#2d7a2d" },
-  scrollThumb: "#ccc",
-  shadow: "0 2px 12px rgba(0,0,0,0.12)",
+  bg:"#f5f5f0",bg2:"#fff",bg3:"#eeeeea",card:"#ffffff",
+  text:"#000000",text2:"#1a1a1a",text3:"#444",text4:"#888",
+  accent:"#c0392b",gold:"#9a6b00",border:"#ccc",border2:"#ddd",
+  inputBg:"#ffffff",inputText:"#000000",
+  sP:{border:"#aaa",color:"#555"},sI:{border:"#c0392b",color:"#c0392b"},sD:{border:"#2d7a2d",color:"#2d7a2d"},
+  scrollThumb:"#ccc",shadow:"0 2px 12px rgba(0,0,0,0.1)",subBg:"#f9f9f6",subBorder:"#ddd",
 };
 
-const STATUS_OPTIONS = ["pending", "in-progress", "done"];
+const STATUS_OPTIONS = ["pending","in-progress","done"];
 const F1_SHOTS = [
-  { title: "THE ARRIVAL", narration: "Silence.", description: "Storm clouds, camera cranes down through crimson atmosphere toward stationary F1 car from behind." },
-  { title: "THE REVEAL", narration: "Silence. Let the car speak.", description: "Intimate close shot of rear wing. Carbon fibre detail. Flaps in position. Everything still." },
-  { title: "IGNITION", narration: "Silence. Just sound and motion.", description: "Engine fires. Tyres spin. Dust explodes. Car launches. Camera pulls back alongside." },
-  { title: "BEHIND THE CAR", narration: "Silence. Just engine sound.", description: "Camera locks behind car. Rival car visible ahead. The gap. Track as a corridor." },
-  { title: "THE WING ADJUSTS", narration: "Silence. Let the engineering speak.", description: "Gap closing. Rear wing flaps adjust — mechanical, visible from behind. Car surges forward." },
-  { title: "THE OVERTAKE", narration: "Do you know how this works?", description: "Our car pulls alongside, then past. Rival falls back. Comic reaction bubble on helmet." },
-  { title: "REACTION BUBBLE", narration: "Most people don't.", description: "Zoom on overtaken helmet. Comic style question mark bubble. 2D graphic on 3D render." },
-  { title: "THE CUT", narration: "To understand this — we don't need a racetrack.", description: "Hard cut to ordinary road. Normal car. Sunny day. Maximum visual contrast." },
-  { title: "THE HAND", narration: "You've already felt this. Every single one of you.", description: "Child's hand out car window. Fingers flat and horizontal. Wind hitting the hand." },
-  { title: "FINGERS UP", narration: "Push your fingers up. The wind strikes the front face of your hand. Pushes it up. That's lift. That's how airplanes fly.", description: "Hand tilts fingers upward. Hand visibly lifts with the wind." },
-  { title: "FINGERS DOWN", narration: "Now push them down. Wind strikes again. But now it pushes your hand toward the ground. That's downforce. That's Formula 1.", description: "Hand tilts fingers downward. Hand pushes down toward car door." },
-  { title: "BACK TO THE CAR", narration: "The wing does exactly what your hand just did. Pushes the entire car into the ground.", description: "Return to F1 wing from behind. Flaps angled down — same motion as hand. Slow zoom into wing detail." },
-  { title: "THE TURN", narration: "At 300 kilometres per hour. Through a corner that would kill you in a road car. Downforce makes this possible.", description: "Car entering high speed corner. Camera at tyre level. Rubber and dust. Perfect exit." },
-  { title: "DOMINANT OVERTAKING", narration: "And now you understand why this car is winning.", description: "Our car overtakes one, then another. Purposeful. From behind. Engineering winning." },
-  { title: "THE REVERSAL", narration: "Of course — everyone knows this. Every team. Every engineer. Every driver.", description: "New car appears and overtakes us cleanly. Our car is now behind. The reversal." },
-  { title: "THE FIELD", narration: "The same wind. The same downforce. The same basic principles available to everyone.", description: "Wide shot. Multiple cars racing. All equal in frame. Same physics, all of them." },
-  { title: "THE ENGINEERS", narration: "But do you just ignore all of that? Do you think the best aerodynamic wins automatically?", description: "Garage. Engineers at laptops. Hands on keyboards. Faces in deep focus. Data on screens." },
-  { title: "THE CLOSING", narration: "Everyone has the same physics. But everyone has their own instincts. Their own way of reading the wind.", description: "Dawn gold light. Car alone on empty track. Moving forward into the light." },
-  { title: "THE END CARD", narration: "And this is just one of the many things that makes an F1 car great.", description: "Car disappears. Empty track. Dust settling. Channel name appears clean and simple." },
+  {title:"THE ARRIVAL",narration:"Silence.",description:"Storm clouds, camera cranes down through crimson atmosphere toward stationary F1 car from behind."},
+  {title:"THE REVEAL",narration:"Silence. Let the car speak.",description:"Intimate close shot of rear wing. Carbon fibre detail. Flaps in position. Everything still."},
+  {title:"IGNITION",narration:"Silence. Just sound and motion.",description:"Engine fires. Tyres spin. Dust explodes. Car launches. Camera pulls back alongside."},
+  {title:"BEHIND THE CAR",narration:"Silence. Just engine sound.",description:"Camera locks behind car. Rival car visible ahead. The gap. Track as a corridor."},
+  {title:"THE WING ADJUSTS",narration:"Silence. Let the engineering speak.",description:"Gap closing. Rear wing flaps adjust — mechanical, visible from behind. Car surges forward."},
+  {title:"THE OVERTAKE",narration:"Do you know how this works?",description:"Our car pulls alongside, then past. Rival falls back. Comic reaction bubble on helmet."},
+  {title:"REACTION BUBBLE",narration:"Most people don't.",description:"Zoom on overtaken helmet. Comic style question mark bubble. 2D graphic on 3D render."},
+  {title:"THE CUT",narration:"To understand this — we don't need a racetrack.",description:"Hard cut to ordinary road. Normal car. Sunny day. Maximum visual contrast."},
+  {title:"THE HAND",narration:"You've already felt this. Every single one of you.",description:"Child's hand out car window. Fingers flat and horizontal. Wind hitting the hand."},
+  {title:"FINGERS UP",narration:"Push your fingers up. The wind strikes the front face of your hand. Pushes it up. That's lift. That's how airplanes fly.",description:"Hand tilts fingers upward. Hand visibly lifts with the wind."},
+  {title:"FINGERS DOWN",narration:"Now push them down. Wind strikes again. But now it pushes your hand toward the ground. That's downforce. That's Formula 1.",description:"Hand tilts fingers downward. Hand pushes down toward car door."},
+  {title:"BACK TO THE CAR",narration:"The wing does exactly what your hand just did. Pushes the entire car into the ground.",description:"Return to F1 wing from behind. Flaps angled down — same motion as hand. Slow zoom into wing detail."},
+  {title:"THE TURN",narration:"At 300 kilometres per hour. Through a corner that would kill you in a road car. Downforce makes this possible.",description:"Car entering high speed corner. Camera at tyre level. Rubber and dust. Perfect exit."},
+  {title:"DOMINANT OVERTAKING",narration:"And now you understand why this car is winning.",description:"Our car overtakes one, then another. Purposeful. From behind. Engineering winning."},
+  {title:"THE REVERSAL",narration:"Of course — everyone knows this. Every team. Every engineer. Every driver.",description:"New car appears and overtakes us cleanly. Our car is now behind. The reversal."},
+  {title:"THE FIELD",narration:"The same wind. The same downforce. The same basic principles available to everyone.",description:"Wide shot. Multiple cars racing. All equal in frame. Same physics, all of them."},
+  {title:"THE ENGINEERS",narration:"But do you just ignore all of that? Do you think the best aerodynamic wins automatically?",description:"Garage. Engineers at laptops. Hands on keyboards. Faces in deep focus. Data on screens."},
+  {title:"THE CLOSING",narration:"Everyone has the same physics. But everyone has their own instincts. Their own way of reading the wind.",description:"Dawn gold light. Car alone on empty track. Moving forward into the light."},
+  {title:"THE END CARD",narration:"And this is just one of the many things that makes an F1 car great.",description:"Car disappears. Empty track. Dust settling. Channel name appears clean and simple."},
 ];
 
-const makeShot = (o = {}) => ({ id: crypto.randomUUID(), title: "NEW SHOT", narration: "", description: "", status: "pending", prompts: "", notes: "", imageUrl: "", imageData: "", ...o });
-const makeResource = (o = {}) => ({ id: crypto.randomUUID(), label: "", url: "", context: "", ...o });
-const makeProject = (name, shots = []) => ({ id: crypto.randomUUID(), name, createdAt: Date.now(), shots: shots.length ? shots.map(s => makeShot(s)) : [makeShot()], resources: [] });
-const defaultData = () => ({ projects: [makeProject("F1 Aerodynamics & Downforce", F1_SHOTS)], activeId: null, knowledgeCenter: [], theme: "dark" });
+const makeSubScene = (o={}) => ({id:crypto.randomUUID(),title:"SUB-SCENE",narration:"",description:"",prompts:"",notes:"",imageUrl:"",imageData:"",...o});
+const makeShot = (o={}) => ({id:crypto.randomUUID(),title:"NEW SHOT",narration:"",description:"",status:"pending",prompts:"",notes:"",imageUrl:"",imageData:"",subScenes:[],...o});
+const makeResource = (o={}) => ({id:crypto.randomUUID(),label:"",url:"",context:"",...o});
+const makeProject = (name,shots=[]) => ({id:crypto.randomUUID(),name,createdAt:Date.now(),shots:shots.length?shots.map(s=>makeShot(s)):[makeShot()],resources:[]});
+const defaultData = () => ({projects:[makeProject("F1 Aerodynamics & Downforce",F1_SHOTS)],activeId:null,knowledgeCenter:[],theme:"dark"});
 
-function resizeAndEncode(file, maxW = 1200, q = 0.82) {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const scale = Math.min(1, maxW / img.width);
-      const c = document.createElement("canvas");
-      c.width = img.width * scale; c.height = img.height * scale;
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", q));
+function resizeAndEncode(file,maxW=1200,q=0.82){
+  return new Promise((res,rej)=>{
+    const img=new Image(),url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const scale=Math.min(1,maxW/img.width);
+      const c=document.createElement("canvas");
+      c.width=img.width*scale;c.height=img.height*scale;
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);res(c.toDataURL("image/jpeg",q));
     };
-    img.onerror = rej; img.src = url;
+    img.onerror=rej;img.src=url;
   });
 }
 
-function useTrackerData() {
-  const [data, setData] = useState(null);
-  const [saveStatus, setSaveStatus] = useState("saved");
-  const timer = useRef(null);
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const snap = await window.__getDoc(window.__docRef);
-        if (snap.exists()) { setData({ ...defaultData(), ...snap.data().payload }); return; }
-      } catch(e) { console.error("Load:", e); }
+function useTrackerData(){
+  const [data,setData]=useState(null);
+  const [saveStatus,setSaveStatus]=useState("saved");
+  const timer=useRef(null);
+  useEffect(()=>{
+    const load=async()=>{
+      try{const snap=await window.__getDoc(window.__docRef);if(snap.exists()){setData({...defaultData(),...snap.data().payload});return;}}catch(e){console.error(e);}
       setData(defaultData());
     };
-    if (window.__fbReady) load();
-    else window.addEventListener("fb-ready", load, { once: true });
-  }, []);
-  const save = useCallback((next) => {
-    clearTimeout(timer.current);
-    setSaveStatus("saving");
-    timer.current = setTimeout(async () => {
-      try { await window.__setDoc(window.__docRef, { payload: next }); setSaveStatus("saved"); }
-      catch(e) { console.error("Save:", e); setSaveStatus("error"); }
-    }, 800);
-  }, []);
-  const update = useCallback((fn) => { setData(prev => { const next = fn(prev); save(next); return next; }); }, [save]);
-  return { data, update, saveStatus };
+    if(window.__fbReady)load();else window.addEventListener("fb-ready",load,{once:true});
+  },[]);
+  const save=useCallback((next)=>{
+    clearTimeout(timer.current);setSaveStatus("saving");
+    timer.current=setTimeout(async()=>{
+      try{await window.__setDoc(window.__docRef,{payload:next});setSaveStatus("saved");}
+      catch(e){console.error(e);setSaveStatus("error");}
+    },800);
+  },[]);
+  const update=useCallback((fn)=>{setData(prev=>{const next=fn(prev);save(next);return next;});},[save]);
+  return {data,update,saveStatus};
 }
 
-function exportProject(project) {
-  const clean = { name: project.name, shots: project.shots.map(s => ({ title: s.title, narration: s.narration, description: s.description, status: s.status, prompts: s.prompts, notes: s.notes, imageUrl: s.imageUrl })), resources: project.resources };
-  const blob = new Blob([JSON.stringify(clean, null, 2)], { type: "application/json" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-  a.download = `${project.name.replace(/\s+/g, "_")}.json`; a.click();
+function exportProject(project){
+  const clean={name:project.name,shots:project.shots.map(s=>({title:s.title,narration:s.narration,description:s.description,status:s.status,prompts:s.prompts,notes:s.notes,imageUrl:s.imageUrl,subScenes:(s.subScenes||[]).map(ss=>({title:ss.title,narration:ss.narration,description:ss.description,prompts:ss.prompts,notes:ss.notes,imageUrl:ss.imageUrl}))})),resources:project.resources};
+  const blob=new Blob([JSON.stringify(clean,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${project.name.replace(/\s+/g,"_")}.json`;a.click();
 }
+function parseImport(text){const raw=JSON.parse(text);return makeProject(raw.name||"Imported",raw.shots||[]);}
 
-function parseImport(text) {
-  const raw = JSON.parse(text);
-  return makeProject(raw.name || "Imported Project", raw.shots || []);
-}
-
-// ── Theme Toggle ──────────────────────────────────────────────────────────
-function ThemeToggle({ theme, onToggle, t }) {
-  return (
-    <button onClick={onToggle} style={{ background: t.bg3, border: `1px solid ${t.border}`, borderRadius: 24, padding: "6px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: t.text2, fontSize: 15 }}>
-      <span>{theme === "dark" ? "☀️" : "🌙"}</span>
-      <span style={{ fontSize: 13, fontFamily: "Georgia, serif", color: t.text3 }}>{theme === "dark" ? "Light" : "Dark"}</span>
+// ── Theme toggle ──────────────────────────────────────────────────────────
+function ThemeToggle({theme,onToggle,t}){
+  return(
+    <button onClick={onToggle} style={{background:t.bg3,border:`1px solid ${t.border}`,borderRadius:24,padding:"6px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,color:t.text2,fontSize:15}}>
+      <span>{theme==="dark"?"☀️":"🌙"}</span>
+      <span style={{fontSize:13,color:t.text3}}>{theme==="dark"?"Light":"Dark"}</span>
     </button>
   );
 }
 
-// ── Root ──────────────────────────────────────────────────────────────────
-function App() {
-  const { data, update, saveStatus } = useTrackerData();
-  const [showKC, setShowKC] = useState(false);
-  if (!data) return <Loading />;
-
-  const t = data.theme === "light" ? LIGHT : DARK;
-  const toggleTheme = () => update(d => ({ ...d, theme: d.theme === "dark" ? "light" : "dark" }));
-  const active = data.projects.find(p => p.id === data.activeId) ?? null;
-
-  // inject scrollbar color
-  const scrollStyle = document.getElementById("scroll-style") || (() => { const s = document.createElement("style"); s.id = "scroll-style"; document.head.appendChild(s); return s; })();
-  scrollStyle.textContent = `::-webkit-scrollbar-track { background: ${t.bg}; } ::-webkit-scrollbar-thumb { background: ${t.scrollThumb}; } body { background: ${t.bg}; }`;
-
-  if (showKC) return <KnowledgeCenter entries={data.knowledgeCenter || []} onBack={() => setShowKC(false)} onChange={kc => update(d => ({ ...d, knowledgeCenter: kc }))} saveStatus={saveStatus} t={t} theme={data.theme} onToggleTheme={toggleTheme} />;
-
-  if (!active) return (
-    <ProjectManager projects={data.projects} saveStatus={saveStatus} t={t} theme={data.theme} onToggleTheme={toggleTheme}
-      onOpen={id => update(d => ({ ...d, activeId: id }))}
-      onCreate={name => update(d => { const p = makeProject(name); return { ...d, projects: [...d.projects, p], activeId: p.id }; })}
-      onRename={(id, name) => update(d => ({ ...d, projects: d.projects.map(p => p.id === id ? { ...p, name } : p) }))}
-      onDelete={id => update(d => ({ ...d, projects: d.projects.filter(p => p.id !== id), activeId: d.activeId === id ? null : d.activeId }))}
-      onImport={proj => update(d => ({ ...d, projects: [...d.projects, proj] }))}
-      onKC={() => setShowKC(true)}
-    />
-  );
-
-  return (
-    <ShotEditor project={active} saveStatus={saveStatus} t={t} theme={data.theme} onToggleTheme={toggleTheme}
-      onBack={() => update(d => ({ ...d, activeId: null }))}
-      onUpdateProject={proj => update(d => ({ ...d, projects: d.projects.map(p => p.id === active.id ? proj : p) }))}
-    />
+// ── Image field — self-contained, handles upload + URL + remove ───────────
+function ImageField({imageUrl,imageData,onChangeUrl,onChangeData,onRemove,t,uploadKey}){
+  const [uploading,setUploading]=useState(false);
+  const imgSrc=imageData||imageUrl||null;
+  const handleUpload=async(e)=>{
+    const file=e.target.files[0];if(!file)return;
+    e.target.value=""; // reset input immediately
+    setUploading(true);
+    try{const d=await resizeAndEncode(file);onChangeData(d);}catch(err){console.error(err);}
+    setUploading(false);
+  };
+  const handleRemove=()=>{
+    onRemove(); // clears both imageUrl and imageData in parent
+  };
+  return(
+    <div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <label style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer",padding:"12px 16px",border:`1px dashed ${t.border}`,borderRadius:4,background:t.bg3}}>
+          <span style={{fontSize:14,color:t.text3}}>{uploading?"Processing…":"Upload image from device"}</span>
+          <input key={uploadKey} type="file" accept="image/*" style={{display:"none"}} onChange={handleUpload}/>
+          {!uploading&&<span style={{fontSize:13,color:t.accent,marginLeft:"auto"}}>Browse</span>}
+        </label>
+        <input value={imageUrl} onChange={e=>{onChangeUrl(e.target.value);if(e.target.value)onChangeData("");}}
+          placeholder="…or paste a URL (Google Drive direct link, etc.)" style={inp(t)}/>
+        {imgSrc&&(
+          <button onClick={handleRemove}
+            style={{background:"none",border:`1px solid ${t.border}`,borderRadius:4,color:t.text4,cursor:"pointer",fontSize:13,padding:"6px 12px",textAlign:"left",alignSelf:"flex-start"}}>
+            × Remove image
+          </button>
+        )}
+      </div>
+      {imgSrc&&(
+        <div style={{marginTop:12}}>
+          <img src={imgSrc} style={{maxWidth:"100%",maxHeight:260,objectFit:"contain",borderRadius:4,border:`1px solid ${t.border}`,display:"block"}}
+            onError={e=>{e.target.style.display="none";}}/>
+        </div>
+      )}
+    </div>
   );
 }
 
-// ── Project Manager ───────────────────────────────────────────────────────
-function ProjectManager({ projects, saveStatus, t, theme, onToggleTheme, onOpen, onCreate, onRename, onDelete, onImport, onKC }) {
-  const [newName, setNewName] = useState("");
-  const [renamingId, setRenamingId] = useState(null);
-  const [renameVal, setRenameVal] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(null);
-  const [importError, setImportError] = useState("");
+// ── Sub-scene panel ───────────────────────────────────────────────────────
+function SubScenePanel({subScenes,onUpdate,t}){
+  const [expanded,setExpanded]=useState(null);
+  const [uploadKeys,setUploadKeys]=useState({});
 
-  const submit = () => { const n = newName.trim(); if (!n) return; onCreate(n); setNewName(""); };
-  const handleImport = (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => { try { onImport(parseImport(ev.target.result)); setImportError(""); } catch { setImportError("Invalid JSON format."); } };
-    reader.readAsText(file); e.target.value = "";
+  const add=()=>{const s=makeSubScene();onUpdate([...subScenes,s]);setExpanded(s.id);};
+  const del=(id)=>{onUpdate(subScenes.filter(s=>s.id!==id));if(expanded===id)setExpanded(null);};
+  const upd=(id,field,val)=>onUpdate(subScenes.map(s=>s.id===id?{...s,[field]:val}:s));
+  const removeImg=(id)=>{
+    setUploadKeys(k=>({...k,[id]:Date.now()}));
+    onUpdate(subScenes.map(s=>s.id===id?{...s,imageUrl:"",imageData:""}:s));
   };
 
-  return (
-    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "Georgia, serif" }}>
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "48px 32px 80px" }}>
-        {/* Top bar */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 48 }}>
-          <div>
-            <div style={{ fontSize: 13, letterSpacing: "0.25em", color: t.accent, textTransform: "uppercase", marginBottom: 6 }}>Animation Studio</div>
-            <h1 style={{ fontSize: 32, fontWeight: "normal", color: t.text, letterSpacing: "0.03em", marginBottom: 6 }}>Projects</h1>
-            <SaveDot status={saveStatus} t={t} />
+  return(
+    <div style={{marginTop:20,paddingTop:16,borderTop:`2px dashed ${t.border}`}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+        <div style={{fontSize:12,letterSpacing:"0.2em",color:t.gold,textTransform:"uppercase"}}>Sub-Scenes ({subScenes.length})</div>
+        <button onClick={add} style={{background:t.bg3,border:`1px solid ${t.border}`,borderRadius:4,color:t.text3,cursor:"pointer",fontSize:13,padding:"5px 14px"}}>+ Add Sub-Scene</button>
+      </div>
+      {subScenes.length===0&&<div style={{color:t.text4,fontSize:14,fontStyle:"italic",marginBottom:8}}>No sub-scenes yet. Break this shot down further.</div>}
+      {subScenes.map((ss,i)=>{
+        const isOpen=expanded===ss.id;
+        const imgSrc=ss.imageData||ss.imageUrl||null;
+        return(
+          <div key={ss.id} style={{marginBottom:8,border:`1px solid ${t.subBorder}`,borderRadius:5,background:t.subBg,overflow:"hidden"}}>
+            <div onClick={()=>setExpanded(isOpen?null:ss.id)} style={{display:"flex",alignItems:"center",padding:"10px 14px",cursor:"pointer",gap:12}}>
+              <div style={{minWidth:28,height:28,border:`1px solid ${t.border}`,borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:t.gold,fontFamily:"monospace",flexShrink:0}}>{i+1}</div>
+              {imgSrc&&<img src={imgSrc} style={{width:44,height:28,objectFit:"cover",borderRadius:2,flexShrink:0,border:`1px solid ${t.border}`}} onError={e=>e.target.style.display="none"}/>}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,color:t.text2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{ss.title||"UNTITLED SUB-SCENE"}</div>
+                {!isOpen&&<div style={{fontSize:12,color:t.text4,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ss.description||"—"}</div>}
+              </div>
+              <button onClick={e=>{e.stopPropagation();del(ss.id);}} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:3,color:t.text4,cursor:"pointer",fontSize:16,padding:"3px 9px",flexShrink:0}}>×</button>
+              <div style={{color:t.text4,fontSize:10,flexShrink:0,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▼</div>
+            </div>
+            {isOpen&&(
+              <div style={{padding:"0 14px 16px",borderTop:`1px solid ${t.border2}`}}>
+                <Field label="Sub-Scene Title" t={t} mt={14}>
+                  <input value={ss.title} onChange={e=>upd(ss.id,"title",e.target.value)} style={{...inp(t),textTransform:"uppercase",letterSpacing:"0.06em"}}/>
+                </Field>
+                <Field label="Reference Image" t={t} mt={14}>
+                  <ImageField
+                    imageUrl={ss.imageUrl} imageData={ss.imageData}
+                    onChangeUrl={v=>upd(ss.id,"imageUrl",v)}
+                    onChangeData={v=>upd(ss.id,"imageData",v)}
+                    onRemove={()=>removeImg(ss.id)}
+                    t={t} uploadKey={uploadKeys[ss.id]||ss.id}
+                  />
+                </Field>
+                <Field label="Scene Description" t={t} mt={14}><Textarea value={ss.description} onChange={v=>upd(ss.id,"description",v)} placeholder="What happens in this sub-scene…" t={t}/></Field>
+                <Field label="Narration / VO" t={t} mt={14}><Textarea value={ss.narration} onChange={v=>upd(ss.id,"narration",v)} placeholder="Voice-over for this moment…" t={t}/></Field>
+                <Field label="Image Prompts" t={t} mt={14}><Textarea value={ss.prompts} onChange={v=>upd(ss.id,"prompts",v)} placeholder="Generation prompts…" mono t={t}/></Field>
+                <Field label="Notes" t={t} mt={14}><Textarea value={ss.notes} onChange={v=>upd(ss.id,"notes",v)} placeholder="Thoughts, references…" t={t}/></Field>
+              </div>
+            )}
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 8 }}>
-            <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t} />
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Root ──────────────────────────────────────────────────────────────────
+function App(){
+  const {data,update,saveStatus}=useTrackerData();
+  const [showKC,setShowKC]=useState(false);
+  if(!data)return <Loading/>;
+  const t=data.theme==="light"?LIGHT:DARK;
+  const toggleTheme=()=>update(d=>({...d,theme:d.theme==="dark"?"light":"dark"}));
+  const active=data.projects.find(p=>p.id===data.activeId)??null;
+  const scrollStyle=document.getElementById("ss")||(() =>{const s=document.createElement("style");s.id="ss";document.head.appendChild(s);return s;})();
+  scrollStyle.textContent=`::-webkit-scrollbar-track{background:${t.bg}} ::-webkit-scrollbar-thumb{background:${t.scrollThumb}} body{background:${t.bg}}`;
+
+  if(showKC)return <KnowledgeCenter entries={data.knowledgeCenter||[]} onBack={()=>setShowKC(false)} onChange={kc=>update(d=>({...d,knowledgeCenter:kc}))} saveStatus={saveStatus} t={t} theme={data.theme} onToggleTheme={toggleTheme}/>;
+  if(!active)return <ProjectManager projects={data.projects} saveStatus={saveStatus} t={t} theme={data.theme} onToggleTheme={toggleTheme}
+    onOpen={id=>update(d=>({...d,activeId:id}))}
+    onCreate={name=>update(d=>{const p=makeProject(name);return{...d,projects:[...d.projects,p],activeId:p.id};})}
+    onRename={(id,name)=>update(d=>({...d,projects:d.projects.map(p=>p.id===id?{...p,name}:p)}))}
+    onDelete={id=>update(d=>({...d,projects:d.projects.filter(p=>p.id!==id),activeId:d.activeId===id?null:d.activeId}))}
+    onImport={proj=>update(d=>({...d,projects:[...d.projects,proj]}))}
+    onKC={()=>setShowKC(true)}/>;
+  return <ShotEditor project={active} saveStatus={saveStatus} t={t} theme={data.theme} onToggleTheme={toggleTheme}
+    onBack={()=>update(d=>({...d,activeId:null}))}
+    onUpdateProject={proj=>update(d=>({...d,projects:d.projects.map(p=>p.id===active.id?proj:p)}))}/>;
+}
+
+// ── Project Manager ───────────────────────────────────────────────────────
+function ProjectManager({projects,saveStatus,t,theme,onToggleTheme,onOpen,onCreate,onRename,onDelete,onImport,onKC}){
+  const [newName,setNewName]=useState("");
+  const [renamingId,setRenamingId]=useState(null);
+  const [renameVal,setRenameVal]=useState("");
+  const [confirmDelete,setConfirmDelete]=useState(null);
+  const [importError,setImportError]=useState("");
+  const submit=()=>{const n=newName.trim();if(!n)return;onCreate(n);setNewName("");};
+  const handleImport=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=ev=>{try{onImport(parseImport(ev.target.result));setImportError("");}catch{setImportError("Invalid JSON format.");}};
+    r.readAsText(file);e.target.value="";
+  };
+  return(
+    <div style={{minHeight:"100vh",background:t.bg,color:t.text,fontFamily:"Georgia,serif"}}>
+      <div style={{maxWidth:760,margin:"0 auto",padding:"48px 32px 80px"}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:48}}>
+          <div>
+            <div style={{fontSize:13,letterSpacing:"0.25em",color:t.accent,textTransform:"uppercase",marginBottom:6}}>Animation Studio</div>
+            <h1 style={{fontSize:32,fontWeight:"normal",color:t.text,marginBottom:6}}>Projects</h1>
+            <SaveDot status={saveStatus} t={t}/>
+          </div>
+          <div style={{display:"flex",gap:10,alignItems:"center",marginTop:8}}>
+            <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t}/>
             <Btn t={t} muted onClick={onKC}>Knowledge Center</Btn>
           </div>
         </div>
-
-        {/* Create */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-          <input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="New project name…" style={inp(t)} />
+        <div style={{display:"flex",gap:10,marginBottom:16}}>
+          <input value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="New project name…" style={inp(t)}/>
           <Btn t={t} onClick={submit} disabled={!newName.trim()}>+ Create</Btn>
         </div>
-
-        {/* Import */}
-        <div style={{ marginBottom: 40 }}>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-            <span style={{ fontSize: 14, padding: "8px 16px", border: `1px solid ${t.border}`, borderRadius: 4, background: t.bg3, color: t.text3, letterSpacing: "0.05em" }}>Import JSON</span>
-            <input type="file" accept=".json" style={{ display: "none" }} onChange={handleImport} />
+        <div style={{marginBottom:40}}>
+          <label style={{display:"inline-flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+            <span style={{fontSize:14,padding:"8px 16px",border:`1px solid ${t.border}`,borderRadius:4,background:t.bg3,color:t.text3}}>Import JSON</span>
+            <input type="file" accept=".json" style={{display:"none"}} onChange={handleImport}/>
           </label>
-          {importError && <div style={{ fontSize: 13, color: "#e74c3c", marginTop: 8 }}>{importError}</div>}
-          <div style={{ fontSize: 12, color: t.text4, marginTop: 10, lineHeight: 1.8 }}>
-            Expected: <code style={{ color: t.text3, fontSize: 12 }}>{`{ "name": "...", "shots": [...], "resources": [] }`}</code>
-          </div>
+          {importError&&<div style={{fontSize:13,color:"#e74c3c",marginTop:8}}>{importError}</div>}
+          <div style={{fontSize:12,color:t.text4,marginTop:10,lineHeight:1.8}}>Expected: <code style={{color:t.text3}}>{`{ "name": "...", "shots": [...], "resources": [] }`}</code></div>
         </div>
-
-        {/* Projects list */}
-        {projects.length === 0 && <div style={{ color: t.text4, fontSize: 16, fontStyle: "italic" }}>No projects yet. Create one above.</div>}
-        {projects.map(p => {
-          const done = p.shots.filter(s => s.status === "done").length;
-          const pct = p.shots.length ? Math.round((done / p.shots.length) * 100) : 0;
-          return (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", padding: "20px 22px", border: `1px solid ${t.border}`, borderRadius: 6, marginBottom: 10, background: t.card, boxShadow: t.shadow, gap: 16 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {renamingId === p.id
-                  ? <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter") { onRename(p.id, renameVal.trim() || p.name); setRenamingId(null); } if (e.key === "Escape") setRenamingId(null); }}
-                      onBlur={() => { onRename(p.id, renameVal.trim() || p.name); setRenamingId(null); }}
-                      style={{ ...inp(t), fontSize: 17 }} />
-                  : <div style={{ fontSize: 18, color: t.text, cursor: "pointer", fontWeight: "normal", letterSpacing: "0.01em" }} onClick={() => onOpen(p.id)}>{p.name}</div>
+        {projects.length===0&&<div style={{color:t.text4,fontSize:16,fontStyle:"italic"}}>No projects yet.</div>}
+        {projects.map(p=>{
+          const done=p.shots.filter(s=>s.status==="done").length;
+          const pct=p.shots.length?Math.round((done/p.shots.length)*100):0;
+          return(
+            <div key={p.id} style={{display:"flex",alignItems:"center",padding:"20px 22px",border:`1px solid ${t.border}`,borderRadius:6,marginBottom:10,background:t.card,boxShadow:t.shadow,gap:16}}>
+              <div style={{flex:1,minWidth:0}}>
+                {renamingId===p.id
+                  ?<input autoFocus value={renameVal} onChange={e=>setRenameVal(e.target.value)}
+                      onKeyDown={e=>{if(e.key==="Enter"){onRename(p.id,renameVal.trim()||p.name);setRenamingId(null);}if(e.key==="Escape")setRenamingId(null);}}
+                      onBlur={()=>{onRename(p.id,renameVal.trim()||p.name);setRenamingId(null);}}
+                      style={{...inp(t),fontSize:17}}/>
+                  :<div style={{fontSize:18,color:t.text,cursor:"pointer"}} onClick={()=>onOpen(p.id)}>{p.name}</div>
                 }
-                <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 10 }}>
-                  <div style={{ flex: 1, height: 4, background: t.bg3, borderRadius: 2 }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${t.accent}, ${t.gold})`, borderRadius: 2, transition: "width .4s" }} />
+                <div style={{display:"flex",alignItems:"center",gap:14,marginTop:10}}>
+                  <div style={{flex:1,height:4,background:t.bg3,borderRadius:2}}>
+                    <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${t.accent},${t.gold})`,borderRadius:2,transition:"width .4s"}}/>
                   </div>
-                  <div style={{ fontSize: 13, color: t.text3, whiteSpace: "nowrap" }}>{done} / {p.shots.length} done</div>
+                  <div style={{fontSize:13,color:t.text3,whiteSpace:"nowrap"}}>{done}/{p.shots.length} done</div>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                <Btn t={t} small onClick={() => onOpen(p.id)}>Open</Btn>
-                <Btn t={t} small muted onClick={() => { setRenamingId(p.id); setRenameVal(p.name); }}>Rename</Btn>
-                <Btn t={t} small danger onClick={() => setConfirmDelete(p.id)}>Delete</Btn>
+              <div style={{display:"flex",gap:8,flexShrink:0}}>
+                <Btn t={t} small onClick={()=>onOpen(p.id)}>Open</Btn>
+                <Btn t={t} small muted onClick={()=>{setRenamingId(p.id);setRenameVal(p.name);}}>Rename</Btn>
+                <Btn t={t} small danger onClick={()=>setConfirmDelete(p.id)}>Delete</Btn>
               </div>
             </div>
           );
         })}
       </div>
-      {confirmDelete && <Modal title="Delete project?" body={`"${projects.find(p => p.id === confirmDelete)?.name}" will be permanently removed.`} onConfirm={() => { onDelete(confirmDelete); setConfirmDelete(null); }} onCancel={() => setConfirmDelete(null)} danger t={t} />}
+      {confirmDelete&&<Modal title="Delete project?" body={`"${projects.find(p=>p.id===confirmDelete)?.name}" will be permanently removed.`} onConfirm={()=>{onDelete(confirmDelete);setConfirmDelete(null);}} onCancel={()=>setConfirmDelete(null)} danger t={t}/>}
     </div>
   );
 }
 
 // ── Knowledge Center ──────────────────────────────────────────────────────
-function KnowledgeCenter({ entries, onBack, onChange, saveStatus, t, theme, onToggleTheme }) {
-  const addEntry = () => onChange([...entries, makeResource()]);
-  const updEntry = (id, field, val) => onChange(entries.map(e => e.id === id ? { ...e, [field]: val } : e));
-  return (
-    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "Georgia, serif" }}>
-      <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "20px 40px", position: "sticky", top: 0, zIndex: 100, boxShadow: t.shadow }}>
-        <div style={{ maxWidth: 880, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+function KnowledgeCenter({entries,onBack,onChange,saveStatus,t,theme,onToggleTheme}){
+  const add=()=>onChange([...entries,makeResource()]);
+  const upd=(id,f,v)=>onChange(entries.map(e=>e.id===id?{...e,[f]:v}:e));
+  return(
+    <div style={{minHeight:"100vh",background:t.bg,color:t.text,fontFamily:"Georgia,serif"}}>
+      <div style={{background:t.card,borderBottom:`1px solid ${t.border}`,padding:"20px 40px",position:"sticky",top:0,zIndex:100,boxShadow:t.shadow}}>
+        <div style={{maxWidth:880,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
-            <button onClick={onBack} style={{ background: "none", border: "none", color: t.text3, cursor: "pointer", fontSize: 15, padding: 0, marginBottom: 6, letterSpacing: "0.05em" }}>← All Projects</button>
-            <div style={{ fontSize: 13, letterSpacing: "0.2em", color: t.accent, textTransform: "uppercase" }}>Studio-Wide Reference</div>
-            <div style={{ fontSize: 24, color: t.text, fontWeight: "normal", marginTop: 2 }}>Knowledge Center</div>
+            <button onClick={onBack} style={{background:"none",border:"none",color:t.text3,cursor:"pointer",fontSize:15,padding:0,marginBottom:6}}>← All Projects</button>
+            <div style={{fontSize:13,letterSpacing:"0.2em",color:t.accent,textTransform:"uppercase"}}>Studio-Wide Reference</div>
+            <div style={{fontSize:24,color:t.text,fontWeight:"normal",marginTop:2}}>Knowledge Center</div>
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <SaveDot status={saveStatus} t={t} />
-            <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t} />
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+            <SaveDot status={saveStatus} t={t}/>
+            <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t}/>
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 880, margin: "0 auto", padding: "28px 40px 80px" }}>
-        <div style={{ fontSize: 15, color: t.text3, marginBottom: 28, lineHeight: 1.8 }}>Global reference library — pipeline docs, model specs, how-to guides. Anything that applies across all your projects.</div>
-        {entries.length === 0 && <div style={{ color: t.text4, fontSize: 15, fontStyle: "italic", marginBottom: 20 }}>No entries yet.</div>}
-        {entries.map(entry => (
-          <div key={entry.id} style={{ marginBottom: 10, border: `1px solid ${t.border}`, borderRadius: 6, background: t.card, padding: "18px 20px", boxShadow: t.shadow }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-              <Field label="Label" t={t}><input value={entry.label} onChange={e => updEntry(entry.id, "label", e.target.value)} placeholder="e.g. Blender Pipeline Guide" style={inp(t)} /></Field>
-              <Field label="URL" t={t}><input value={entry.url} onChange={e => updEntry(entry.id, "url", e.target.value)} placeholder="https://drive.google.com/…" style={inp(t)} /></Field>
+      <div style={{maxWidth:880,margin:"0 auto",padding:"28px 40px 80px"}}>
+        <div style={{fontSize:15,color:t.text3,marginBottom:28,lineHeight:1.8}}>Global reference library — pipeline docs, model specs, how-to guides. Anything studio-wide.</div>
+        {entries.length===0&&<div style={{color:t.text4,fontSize:15,fontStyle:"italic",marginBottom:20}}>No entries yet.</div>}
+        {entries.map(entry=>(
+          <div key={entry.id} style={{marginBottom:10,border:`1px solid ${t.border}`,borderRadius:6,background:t.card,padding:"18px 20px",boxShadow:t.shadow}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+              <Field label="Label" t={t}><input value={entry.label} onChange={e=>upd(entry.id,"label",e.target.value)} placeholder="e.g. Blender Pipeline Guide" style={inp(t)}/></Field>
+              <Field label="URL" t={t}><input value={entry.url} onChange={e=>upd(entry.id,"url",e.target.value)} placeholder="https://drive.google.com/…" style={inp(t)}/></Field>
             </div>
             <Field label="Description" t={t}>
-              <div style={{ display: "flex", gap: 10 }}>
-                <input value={entry.context} onChange={e => updEntry(entry.id, "context", e.target.value)} placeholder="What is this? When should you use it?" style={{ ...inp(t), flex: 1 }} />
-                {entry.url && <a href={entry.url} target="_blank" rel="noreferrer" style={{ padding: "10px 18px", background: t.accent, borderRadius: 4, color: "#fff", fontSize: 14, whiteSpace: "nowrap" }}>Open →</a>}
-                <button onClick={() => onChange(entries.filter(e => e.id !== entry.id))} style={{ background: "none", border: `1px solid ${t.border}`, borderRadius: 4, color: t.text3, cursor: "pointer", fontSize: 18, padding: "6px 14px" }}>×</button>
+              <div style={{display:"flex",gap:10}}>
+                <input value={entry.context} onChange={e=>upd(entry.id,"context",e.target.value)} placeholder="What is this? When to use it?" style={{...inp(t),flex:1}}/>
+                {entry.url&&<a href={entry.url} target="_blank" rel="noreferrer" style={{padding:"10px 18px",background:t.accent,borderRadius:4,color:"#fff",fontSize:14,whiteSpace:"nowrap"}}>Open →</a>}
+                <button onClick={()=>onChange(entries.filter(e=>e.id!==entry.id))} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:4,color:t.text3,cursor:"pointer",fontSize:18,padding:"6px 14px"}}>×</button>
               </div>
             </Field>
           </div>
         ))}
-        <div style={{ marginTop: 20 }}><Btn t={t} onClick={addEntry}>+ Add Entry</Btn></div>
+        <div style={{marginTop:20}}><Btn t={t} onClick={add}>+ Add Entry</Btn></div>
       </div>
     </div>
   );
 }
 
 // ── Shot Editor ───────────────────────────────────────────────────────────
-function ShotEditor({ project, saveStatus, t, theme, onToggleTheme, onBack, onUpdateProject }) {
-  const [tab, setTab] = useState("shots");
-  const [expanded, setExpanded] = useState(null);
-  const [filter, setFilter] = useState("all");
-  const [dragging, setDragging] = useState(null);
-  const [dragOver, setDragOver] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null);
-  const [uploading, setUploading] = useState({});
+function ShotEditor({project,saveStatus,t,theme,onToggleTheme,onBack,onUpdateProject}){
+  const [tab,setTab]=useState("shots");
+  const [expanded,setExpanded]=useState(null);
+  const [filter,setFilter]=useState("all");
+  const [dragging,setDragging]=useState(null);
+  const [dragOver,setDragOver]=useState(null);
+  const [confirmDelete,setConfirmDelete]=useState(null);
+  const [uploadKeys,setUploadKeys]=useState({});
 
-  const shots = project.shots;
-  const resources = project.resources || [];
-  const updShots = s => onUpdateProject({ ...project, shots: s });
-  const updResources = r => onUpdateProject({ ...project, resources: r });
-  const upd = (id, field, value) => updShots(shots.map(s => s.id === id ? { ...s, [field]: value } : s));
-  const addShot = () => { const s = makeShot(); updShots([...shots, s]); setExpanded(s.id); };
-  const deleteShot = id => { updShots(shots.filter(s => s.id !== id)); if (expanded === id) setExpanded(null); setConfirmDelete(null); };
-
-  const handleUpload = async (id, file) => {
-    if (!file) return;
-    setUploading(u => ({ ...u, [id]: true }));
-    try { const d = await resizeAndEncode(file); updShots(shots.map(s => s.id === id ? { ...s, imageData: d, imageUrl: "" } : s)); } catch(e) {}
-    setUploading(u => ({ ...u, [id]: false }));
+  const shots=project.shots;
+  const resources=project.resources||[];
+  const updShots=s=>onUpdateProject({...project,shots:s});
+  const updResources=r=>onUpdateProject({...project,resources:r});
+  const upd=(id,field,value)=>updShots(shots.map(s=>s.id===id?{...s,[field]:value}:s));
+  const addShot=()=>{const s=makeShot();updShots([...shots,s]);setExpanded(s.id);};
+  const deleteShot=id=>{updShots(shots.filter(s=>s.id!==id));if(expanded===id)setExpanded(null);setConfirmDelete(null);};
+  const removeImg=(id)=>{
+    setUploadKeys(k=>({...k,[id]:Date.now()}));
+    updShots(shots.map(s=>s.id===id?{...s,imageUrl:"",imageData:""}:s));
   };
 
-  const onDragStart = id => setDragging(id);
-  const onDragEnd = () => { setDragging(null); setDragOver(null); };
-  const onDrop = targetId => {
-    if (!dragging || dragging === targetId) return;
-    const arr = [...shots];
-    const fi = arr.findIndex(s => s.id === dragging), ti = arr.findIndex(s => s.id === targetId);
-    const [item] = arr.splice(fi, 1); arr.splice(ti, 0, item);
-    updShots(arr); setDragging(null); setDragOver(null);
+  const onDragStart=id=>setDragging(id);
+  const onDragEnd=()=>{setDragging(null);setDragOver(null);};
+  const onDrop=targetId=>{
+    if(!dragging||dragging===targetId)return;
+    const arr=[...shots];
+    const fi=arr.findIndex(s=>s.id===dragging),ti=arr.findIndex(s=>s.id===targetId);
+    const [item]=arr.splice(fi,1);arr.splice(ti,0,item);
+    updShots(arr);setDragging(null);setDragOver(null);
   };
 
-  const counts = { pending: shots.filter(s => s.status === "pending").length, "in-progress": shots.filter(s => s.status === "in-progress").length, done: shots.filter(s => s.status === "done").length };
-  const progress = shots.length ? Math.round((counts.done / shots.length) * 100) : 0;
-  const filtered = filter === "all" ? shots : shots.filter(s => s.status === filter);
-  const smeta = { pending: t.statusPending, "in-progress": t.statusIP, done: t.statusDone };
+  const counts={pending:shots.filter(s=>s.status==="pending").length,"in-progress":shots.filter(s=>s.status==="in-progress").length,done:shots.filter(s=>s.status==="done").length};
+  const progress=shots.length?Math.round((counts.done/shots.length)*100):0;
+  const filtered=filter==="all"?shots:shots.filter(s=>s.status===filter);
+  const smeta={pending:t.sP,"in-progress":t.sI,done:t.sD};
 
-  return (
-    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "Georgia, serif" }}>
-      {/* Header */}
-      <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "20px 40px", position: "sticky", top: 0, zIndex: 100, boxShadow: t.shadow }}>
-        <div style={{ maxWidth: 940, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+  return(
+    <div style={{minHeight:"100vh",background:t.bg,color:t.text,fontFamily:"Georgia,serif"}}>
+      <div style={{background:t.card,borderBottom:`1px solid ${t.border}`,padding:"20px 40px",position:"sticky",top:0,zIndex:100,boxShadow:t.shadow}}>
+        <div style={{maxWidth:940,margin:"0 auto"}}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
             <div>
-              <button onClick={onBack} style={{ background: "none", border: "none", color: t.text3, cursor: "pointer", fontSize: 15, padding: 0, marginBottom: 6 }}>← All Projects</button>
-              <div style={{ fontSize: 12, letterSpacing: "0.2em", color: t.accent, textTransform: "uppercase" }}>Production Pipeline</div>
-              <div style={{ fontSize: 24, color: t.text, fontWeight: "normal", marginTop: 2 }}>{project.name}</div>
+              <button onClick={onBack} style={{background:"none",border:"none",color:t.text3,cursor:"pointer",fontSize:15,padding:0,marginBottom:6}}>← All Projects</button>
+              <div style={{fontSize:12,letterSpacing:"0.2em",color:t.accent,textTransform:"uppercase"}}>Production Pipeline</div>
+              <div style={{fontSize:24,color:t.text,fontWeight:"normal",marginTop:2}}>{project.name}</div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t} />
-                <button onClick={() => exportProject(project)} style={{ fontSize: 13, background: t.bg3, border: `1px solid ${t.border}`, borderRadius: 4, color: t.text3, padding: "8px 16px", cursor: "pointer" }}>Export JSON</button>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+              <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t}/>
+                <button onClick={()=>exportProject(project)} style={{fontSize:13,background:t.bg3,border:`1px solid ${t.border}`,borderRadius:4,color:t.text3,padding:"8px 16px",cursor:"pointer"}}>Export JSON</button>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ fontSize: 30, fontWeight: "bold", color: t.gold }}>{progress}%</div>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{fontSize:30,fontWeight:"bold",color:t.gold}}>{progress}%</div>
                 <div>
-                  <div style={{ fontSize: 12, color: t.text4, textTransform: "uppercase", letterSpacing: "0.1em" }}>Complete</div>
-                  <SaveDot status={saveStatus} t={t} />
+                  <div style={{fontSize:12,color:t.text4,textTransform:"uppercase",letterSpacing:"0.1em"}}>Complete</div>
+                  <SaveDot status={saveStatus} t={t}/>
                 </div>
               </div>
             </div>
           </div>
-          {/* Progress bar */}
-          <div style={{ marginTop: 14, height: 4, background: t.bg3, borderRadius: 2 }}>
-            <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg, ${t.accent}, ${t.gold})`, borderRadius: 2, transition: "width .5s" }} />
+          <div style={{marginTop:14,height:4,background:t.bg3,borderRadius:2}}>
+            <div style={{height:"100%",width:`${progress}%`,background:`linear-gradient(90deg,${t.accent},${t.gold})`,borderRadius:2,transition:"width .5s"}}/>
           </div>
-          {/* Tabs */}
-          <div style={{ display: "flex", gap: 0, marginTop: 18, borderBottom: `1px solid ${t.border2}`, alignItems: "center" }}>
-            {["shots", "resources"].map(tb => (
-              <button key={tb} onClick={() => setTab(tb)} style={{ padding: "8px 22px", background: "transparent", border: "none", borderBottom: `3px solid ${tab === tb ? t.accent : "transparent"}`, color: tab === tb ? t.text : t.text4, fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", marginBottom: "-1px", transition: "color 0.2s" }}>{tb}</button>
+          <div style={{display:"flex",gap:0,marginTop:18,borderBottom:`1px solid ${t.border2}`,alignItems:"center"}}>
+            {["shots","resources"].map(tb=>(
+              <button key={tb} onClick={()=>setTab(tb)} style={{padding:"8px 22px",background:"transparent",border:"none",borderBottom:`3px solid ${tab===tb?t.accent:"transparent"}`,color:tab===tb?t.text:t.text4,fontSize:15,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",marginBottom:"-1px"}}>
+                {tb}
+              </button>
             ))}
-            {tab === "shots" && (
-              <div style={{ display: "flex", gap: 6, marginLeft: 16, paddingBottom: 6 }}>
-                {[["all", `All ${shots.length}`], ["pending", `Pending ${counts.pending}`], ["in-progress", `In Progress ${counts["in-progress"]}`], ["done", `Done ${counts.done}`]].map(([v, l]) => (
-                  <button key={v} onClick={() => setFilter(v)} style={{ padding: "5px 12px", background: filter === v ? t.accent : "transparent", border: `1px solid ${filter === v ? t.accent : t.border}`, borderRadius: 4, color: filter === v ? "#fff" : t.text4, fontSize: 13, cursor: "pointer" }}>{l}</button>
+            {tab==="shots"&&(
+              <div style={{display:"flex",gap:6,marginLeft:16,paddingBottom:6}}>
+                {[["all",`All ${shots.length}`],["pending",`Pending ${counts.pending}`],["in-progress",`In Progress ${counts["in-progress"]}`],["done",`Done ${counts.done}`]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setFilter(v)} style={{padding:"5px 12px",background:filter===v?t.accent:"transparent",border:`1px solid ${filter===v?t.accent:t.border}`,borderRadius:4,color:filter===v?"#fff":t.text4,fontSize:13,cursor:"pointer"}}>{l}</button>
                 ))}
               </div>
             )}
-            <div style={{ flex: 1 }} />
-            <div style={{ paddingBottom: 6 }}>
-              {tab === "shots" && <Btn t={t} small onClick={addShot}>+ Add Shot</Btn>}
-              {tab === "resources" && <Btn t={t} small onClick={() => updResources([...resources, makeResource()])}>+ Add Resource</Btn>}
+            <div style={{flex:1}}/>
+            <div style={{paddingBottom:6}}>
+              {tab==="shots"&&<Btn t={t} small onClick={addShot}>+ Add Shot</Btn>}
+              {tab==="resources"&&<Btn t={t} small onClick={()=>updResources([...resources,makeResource()])}>+ Add Resource</Btn>}
             </div>
           </div>
         </div>
       </div>
 
-      <div style={{ maxWidth: 940, margin: "0 auto", padding: "22px 40px 80px" }}>
-        {/* Shots */}
-        {tab === "shots" && <>
-          {filtered.length === 0 && <div style={{ color: t.text4, fontSize: 15, fontStyle: "italic", padding: "24px 0" }}>No shots here.</div>}
-          {filtered.map((shot, idx) => {
-            const isOpen = expanded === shot.id;
-            const sm = smeta[shot.status];
-            const imgSrc = shot.imageData || shot.imageUrl || null;
-            return (
-              <div key={shot.id} draggable onDragStart={() => onDragStart(shot.id)} onDragEnd={onDragEnd}
-                onDragOver={e => { e.preventDefault(); setDragOver(shot.id); }} onDrop={() => onDrop(shot.id)}
-                style={{ marginBottom: 8, border: `1px solid ${dragOver === shot.id ? t.accent : isOpen ? t.accentBorder : t.border}`, borderRadius: 6, background: t.card, opacity: dragging === shot.id ? 0.4 : 1, boxShadow: t.shadow, transition: "border-color 0.15s" }}>
+      <div style={{maxWidth:940,margin:"0 auto",padding:"22px 40px 80px"}}>
+        {tab==="shots"&&<>
+          {filtered.length===0&&<div style={{color:t.text4,fontSize:15,fontStyle:"italic",padding:"24px 0"}}>No shots here.</div>}
+          {filtered.map((shot,idx)=>{
+            const isOpen=expanded===shot.id;
+            const sm=smeta[shot.status];
+            const imgSrc=shot.imageData||shot.imageUrl||null;
+            const subCount=(shot.subScenes||[]).length;
+            return(
+              <div key={shot.id} draggable onDragStart={()=>onDragStart(shot.id)} onDragEnd={onDragEnd}
+                onDragOver={e=>{e.preventDefault();setDragOver(shot.id);}} onDrop={()=>onDrop(shot.id)}
+                style={{marginBottom:10,border:`1px solid ${dragOver===shot.id?t.accent:isOpen?t.accent:t.border}`,borderRadius:6,background:t.card,opacity:dragging===shot.id?0.4:1,boxShadow:t.shadow,transition:"border-color 0.15s"}}>
                 {/* Row */}
-                <div onClick={() => setExpanded(isOpen ? null : shot.id)} style={{ display: "flex", alignItems: "center", padding: "14px 18px", cursor: "pointer", gap: 14 }}>
-                  <div style={{ color: t.text4, cursor: "grab", fontSize: 16, flexShrink: 0, userSelect: "none" }}>⠿</div>
-                  <div style={{ minWidth: 36, height: 36, border: `1px solid ${t.border}`, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: t.gold, fontFamily: "monospace", flexShrink: 0, fontWeight: "bold" }}>{idx + 1}</div>
-                  {imgSrc && <img src={imgSrc} style={{ width: 56, height: 36, objectFit: "cover", borderRadius: 3, flexShrink: 0, border: `1px solid ${t.border}` }} onError={e => e.target.style.display = "none"} />}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, letterSpacing: "0.06em", color: t.text, textTransform: "uppercase", fontWeight: "normal" }}>{shot.title}</div>
-                    {!isOpen && <div style={{ fontSize: 13, color: t.text4, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shot.description || "—"}</div>}
+                <div onClick={()=>setExpanded(isOpen?null:shot.id)} style={{display:"flex",alignItems:"center",padding:"14px 18px",cursor:"pointer",gap:14}}>
+                  <div style={{color:t.text4,cursor:"grab",fontSize:16,flexShrink:0,userSelect:"none"}}>⠿</div>
+                  <div style={{minWidth:36,height:36,border:`1px solid ${t.border}`,borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:t.gold,fontFamily:"monospace",flexShrink:0,fontWeight:"bold"}}>{idx+1}</div>
+                  {imgSrc&&<img src={imgSrc} style={{width:56,height:36,objectFit:"cover",borderRadius:3,flexShrink:0,border:`1px solid ${t.border}`}} onError={e=>e.target.style.display="none"}/>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:15,letterSpacing:"0.06em",color:t.text,textTransform:"uppercase"}}>{shot.title}</div>
+                    <div style={{display:"flex",gap:10,alignItems:"center",marginTop:3}}>
+                      {!isOpen&&<div style={{fontSize:13,color:t.text4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{shot.description||"—"}</div>}
+                      {subCount>0&&<div style={{fontSize:11,color:t.gold,whiteSpace:"nowrap",flexShrink:0,background:t.bg3,padding:"2px 8px",borderRadius:10,border:`1px solid ${t.border}`}}>{subCount} sub-scene{subCount>1?"s":""}</div>}
+                    </div>
                   </div>
-                  <select value={shot.status} onChange={e => { e.stopPropagation(); upd(shot.id, "status", e.target.value); }} onClick={e => e.stopPropagation()}
-                    style={{ background: t.bg3, border: `2px solid ${sm.border}`, color: sm.color, padding: "6px 12px", fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", borderRadius: 4, cursor: "pointer", flexShrink: 0, fontWeight: "bold" }}>
-                    {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  <select value={shot.status} onChange={e=>{e.stopPropagation();upd(shot.id,"status",e.target.value);}} onClick={e=>e.stopPropagation()}
+                    style={{background:t.bg3,border:`2px solid ${sm.border}`,color:sm.color,padding:"6px 12px",fontSize:13,letterSpacing:"0.06em",textTransform:"uppercase",borderRadius:4,cursor:"pointer",flexShrink:0,fontWeight:"bold"}}>
+                    {STATUS_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
                   </select>
-                  <button onClick={e => { e.stopPropagation(); setConfirmDelete(shot.id); }} style={{ background: "none", border: `1px solid ${t.border}`, borderRadius: 4, color: t.text4, cursor: "pointer", fontSize: 18, padding: "4px 10px", flexShrink: 0 }}>×</button>
-                  <div style={{ color: t.text4, fontSize: 11, flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</div>
+                  <button onClick={e=>{e.stopPropagation();setConfirmDelete(shot.id);}} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:4,color:t.text4,cursor:"pointer",fontSize:18,padding:"4px 10px",flexShrink:0}}>×</button>
+                  <div style={{color:t.text4,fontSize:11,flexShrink:0,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▼</div>
                 </div>
                 {/* Expanded */}
-                {isOpen && (
-                  <div style={{ padding: "0 18px 20px", borderTop: `1px solid ${t.border2}` }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 18 }}>
-                      <Field label="Shot Title" t={t}><input value={shot.title} onChange={e => upd(shot.id, "title", e.target.value)} style={{ ...inp(t), textTransform: "uppercase", letterSpacing: "0.06em" }} /></Field>
+                {isOpen&&(
+                  <div style={{padding:"0 18px 22px",borderTop:`1px solid ${t.border2}`}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:18}}>
+                      <Field label="Shot Title" t={t}><input value={shot.title} onChange={e=>upd(shot.id,"title",e.target.value)} style={{...inp(t),textTransform:"uppercase",letterSpacing:"0.06em"}}/></Field>
                       <Field label="Status" t={t}>
-                        <select value={shot.status} onChange={e => upd(shot.id, "status", e.target.value)} style={{ ...inp(t), color: smeta[shot.status].color, border: `2px solid ${smeta[shot.status].border}`, fontWeight: "bold" }}>
-                          {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        <select value={shot.status} onChange={e=>upd(shot.id,"status",e.target.value)} style={{...inp(t),color:smeta[shot.status].color,border:`2px solid ${smeta[shot.status].border}`,fontWeight:"bold"}}>
+                          {STATUS_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
                         </select>
                       </Field>
                     </div>
                     <Field label="Reference Image" t={t} mt={18}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "12px 16px", border: `1px dashed ${t.border}`, borderRadius: 4, background: t.bg3 }}>
-                          <span style={{ fontSize: 14, color: t.text3 }}>{uploading[shot.id] ? "Processing…" : "Upload image from device"}</span>
-                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => handleUpload(shot.id, e.target.files[0])} />
-                          {!uploading[shot.id] && <span style={{ fontSize: 13, color: t.accent, marginLeft: "auto" }}>Browse</span>}
-                        </label>
-                        <input value={shot.imageUrl} onChange={e => { upd(shot.id, "imageUrl", e.target.value); if (e.target.value) upd(shot.id, "imageData", ""); }} placeholder="…or paste a URL (Google Drive, etc.)" style={inp(t)} />
-                        {(shot.imageData || shot.imageUrl) && <button onClick={() => { upd(shot.id, "imageData", ""); upd(shot.id, "imageUrl", ""); }} style={{ background: "none", border: "none", color: t.text4, cursor: "pointer", fontSize: 13, textAlign: "left", padding: 0 }}>× Remove image</button>}
-                      </div>
-                      {imgSrc && <div style={{ marginTop: 12 }}><img src={imgSrc} style={{ maxWidth: "100%", maxHeight: 260, objectFit: "contain", borderRadius: 4, border: `1px solid ${t.border}` }} onError={e => e.target.style.display = "none"} /></div>}
+                      <ImageField
+                        imageUrl={shot.imageUrl} imageData={shot.imageData}
+                        onChangeUrl={v=>upd(shot.id,"imageUrl",v)}
+                        onChangeData={v=>upd(shot.id,"imageData",v)}
+                        onRemove={()=>removeImg(shot.id)}
+                        t={t} uploadKey={uploadKeys[shot.id]||shot.id}
+                      />
                     </Field>
-                    <Field label="Scene Description" t={t} mt={18}><Textarea value={shot.description} onChange={v => upd(shot.id, "description", v)} placeholder="What happens visually in this shot…" t={t} /></Field>
-                    <Field label="Narration / VO" t={t} mt={14}><Textarea value={shot.narration} onChange={v => upd(shot.id, "narration", v)} placeholder="Voice-over or silence notes…" t={t} /></Field>
-                    <Field label="Image Prompts" t={t} mt={14}><Textarea value={shot.prompts} onChange={v => upd(shot.id, "prompts", v)} placeholder="Paste generation prompts here — one per frame…" mono t={t} /></Field>
-                    <Field label="Notes & Thoughts" t={t} mt={14}><Textarea value={shot.notes} onChange={v => upd(shot.id, "notes", v)} placeholder="Framing ideas, references, problems to solve…" t={t} /></Field>
+                    <Field label="Scene Description" t={t} mt={18}><Textarea value={shot.description} onChange={v=>upd(shot.id,"description",v)} placeholder="What happens visually in this shot…" t={t}/></Field>
+                    <Field label="Narration / VO" t={t} mt={14}><Textarea value={shot.narration} onChange={v=>upd(shot.id,"narration",v)} placeholder="Voice-over or silence notes…" t={t}/></Field>
+                    <Field label="Image Prompts" t={t} mt={14}><Textarea value={shot.prompts} onChange={v=>upd(shot.id,"prompts",v)} placeholder="Paste generation prompts here — one per frame…" mono t={t}/></Field>
+                    <Field label="Notes & Thoughts" t={t} mt={14}><Textarea value={shot.notes} onChange={v=>upd(shot.id,"notes",v)} placeholder="Framing ideas, references, problems to solve…" t={t}/></Field>
+                    {/* Sub-scenes */}
+                    <SubScenePanel
+                      subScenes={shot.subScenes||[]}
+                      onUpdate={ss=>upd(shot.id,"subScenes",ss)}
+                      t={t}
+                    />
                   </div>
                 )}
               </div>
             );
           })}
-          <div style={{ marginTop: 20 }}><Btn t={t} onClick={addShot}>+ Add Shot</Btn></div>
+          <div style={{marginTop:20}}><Btn t={t} onClick={addShot}>+ Add Shot</Btn></div>
         </>}
 
-        {/* Resources */}
-        {tab === "resources" && <>
-          <div style={{ fontSize: 15, color: t.text3, marginBottom: 24, lineHeight: 1.8 }}>Project-specific references — character sheets, Blender source files, mood boards, Drive folders for this video only.</div>
-          {resources.length === 0 && <div style={{ color: t.text4, fontSize: 15, fontStyle: "italic", marginBottom: 20 }}>No resources yet.</div>}
-          {resources.map(r => (
-            <div key={r.id} style={{ marginBottom: 10, border: `1px solid ${t.border}`, borderRadius: 6, background: t.card, padding: "18px 20px", boxShadow: t.shadow }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-                <Field label="Label" t={t}><input value={r.label} onChange={e => updResources(resources.map(x => x.id === r.id ? { ...x, label: e.target.value } : x))} placeholder="e.g. Character Reference Sheet" style={inp(t)} /></Field>
-                <Field label="URL" t={t}><input value={r.url} onChange={e => updResources(resources.map(x => x.id === r.id ? { ...x, url: e.target.value } : x))} placeholder="https://drive.google.com/…" style={inp(t)} /></Field>
+        {tab==="resources"&&<>
+          <div style={{fontSize:15,color:t.text3,marginBottom:24,lineHeight:1.8}}>Project-specific references — character sheets, Blender source files, mood boards, Drive folders for this video only.</div>
+          {resources.length===0&&<div style={{color:t.text4,fontSize:15,fontStyle:"italic",marginBottom:20}}>No resources yet.</div>}
+          {resources.map(r=>(
+            <div key={r.id} style={{marginBottom:10,border:`1px solid ${t.border}`,borderRadius:6,background:t.card,padding:"18px 20px",boxShadow:t.shadow}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+                <Field label="Label" t={t}><input value={r.label} onChange={e=>updResources(resources.map(x=>x.id===r.id?{...x,label:e.target.value}:x))} placeholder="e.g. Character Reference Sheet" style={inp(t)}/></Field>
+                <Field label="URL" t={t}><input value={r.url} onChange={e=>updResources(resources.map(x=>x.id===r.id?{...x,url:e.target.value}:x))} placeholder="https://drive.google.com/…" style={inp(t)}/></Field>
               </div>
               <Field label="Context" t={t}>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <input value={r.context} onChange={e => updResources(resources.map(x => x.id === r.id ? { ...x, context: e.target.value } : x))} placeholder="What is this file? How is it used?" style={{ ...inp(t), flex: 1 }} />
-                  {r.url && <a href={r.url} target="_blank" rel="noreferrer" style={{ padding: "10px 18px", background: t.accent, borderRadius: 4, color: "#fff", fontSize: 14, whiteSpace: "nowrap" }}>Open →</a>}
-                  <button onClick={() => updResources(resources.filter(x => x.id !== r.id))} style={{ background: "none", border: `1px solid ${t.border}`, borderRadius: 4, color: t.text3, cursor: "pointer", fontSize: 18, padding: "6px 14px" }}>×</button>
+                <div style={{display:"flex",gap:10}}>
+                  <input value={r.context} onChange={e=>updResources(resources.map(x=>x.id===r.id?{...x,context:e.target.value}:x))} placeholder="What is this file? How is it used?" style={{...inp(t),flex:1}}/>
+                  {r.url&&<a href={r.url} target="_blank" rel="noreferrer" style={{padding:"10px 18px",background:t.accent,borderRadius:4,color:"#fff",fontSize:14,whiteSpace:"nowrap"}}>Open →</a>}
+                  <button onClick={()=>updResources(resources.filter(x=>x.id!==r.id))} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:4,color:t.text3,cursor:"pointer",fontSize:18,padding:"6px 14px"}}>×</button>
                 </div>
               </Field>
             </div>
           ))}
-          <div style={{ marginTop: 20 }}><Btn t={t} onClick={() => updResources([...resources, makeResource()])}>+ Add Resource</Btn></div>
+          <div style={{marginTop:20}}><Btn t={t} onClick={()=>updResources([...resources,makeResource()])}>+ Add Resource</Btn></div>
         </>}
       </div>
-      {confirmDelete && <Modal title="Delete shot?" body={`"${shots.find(s => s.id === confirmDelete)?.title}" will be permanently removed.`} onConfirm={() => deleteShot(confirmDelete)} onCancel={() => setConfirmDelete(null)} danger t={t} />}
+      {confirmDelete&&<Modal title="Delete shot?" body={`"${shots.find(s=>s.id===confirmDelete)?.title}" will be permanently removed.`} onConfirm={()=>deleteShot(confirmDelete)} onCancel={()=>setConfirmDelete(null)} danger t={t}/>}
     </div>
   );
 }
 
-// ── Shared ────────────────────────────────────────────────────────────────
-const Loading = () => (
-  <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-    <div style={{ color: "#555", fontSize: 14, letterSpacing: "0.2em", textTransform: "uppercase" }}>Connecting…</div>
+// ── Shared components ─────────────────────────────────────────────────────
+const Loading=()=>(
+  <div style={{minHeight:"100vh",background:"#0a0a0a",display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{color:"#555",fontSize:14,letterSpacing:"0.2em",textTransform:"uppercase"}}>Connecting…</div>
   </div>
 );
-
-const SaveDot = ({ status, t }) => {
-  const c = status === "saved" ? "#2ecc71" : status === "saving" ? "#f39c12" : "#e74c3c";
-  const l = status === "saved" ? "● Saved" : status === "saving" ? "● Saving…" : "● Error";
-  return <div style={{ fontSize: 12, color: c, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 2 }}>{l}</div>;
+const SaveDot=({status,t})=>{
+  const c=status==="saved"?"#2ecc71":status==="saving"?"#f39c12":"#e74c3c";
+  return <div style={{fontSize:12,color:c,letterSpacing:"0.08em",textTransform:"uppercase",marginTop:2}}>{status==="saved"?"● Saved":status==="saving"?"● Saving…":"● Error"}</div>;
 };
-
-const Field = ({ label, children, t, mt = 0 }) => (
-  <div style={{ marginTop: mt }}>
-    <div style={{ fontSize: 11, letterSpacing: "0.2em", color: t.accent, textTransform: "uppercase", marginBottom: 8, fontWeight: "normal" }}>{label}</div>
+const Field=({label,children,t,mt=0})=>(
+  <div style={{marginTop:mt}}>
+    <div style={{fontSize:11,letterSpacing:"0.2em",color:t.accent,textTransform:"uppercase",marginBottom:8}}>{label}</div>
     {children}
   </div>
 );
-
-const Textarea = ({ value, onChange, placeholder, mono, t }) => (
-  <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3}
-    style={{ width: "100%", background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 4, color: t.inputText, fontSize: 15, padding: "10px 13px", fontFamily: mono ? "monospace" : "Georgia, serif", lineHeight: 1.8, boxSizing: "border-box", outline: "none" }} />
+const Textarea=({value,onChange,placeholder,mono,t})=>(
+  <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3}
+    style={{width:"100%",background:t.inputBg,border:`1px solid ${t.border}`,borderRadius:4,color:t.inputText,fontSize:15,padding:"10px 13px",fontFamily:mono?"monospace":"Georgia,serif",lineHeight:1.8,boxSizing:"border-box",outline:"none"}}/>
 );
-
-const Btn = ({ children, onClick, disabled, small, muted, danger, t }) => (
-  <button onClick={onClick} disabled={disabled} style={{
-    padding: small ? "7px 16px" : "10px 22px",
-    background: danger ? (t.bg === "#0a0a0a" ? "#3d0000" : "#fdecea") : muted ? "transparent" : t.accent,
-    border: `1px solid ${danger ? "#c0392b" : muted ? t.border : t.accent}`,
-    borderRadius: 4, color: danger ? "#e74c3c" : muted ? t.text3 : "#ffffff",
-    fontSize: small ? 13 : 15, letterSpacing: "0.05em",
-    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, whiteSpace: "nowrap",
-  }}>{children}</button>
+const Btn=({children,onClick,disabled,small,muted,danger,t})=>(
+  <button onClick={onClick} disabled={disabled} style={{padding:small?"7px 16px":"10px 22px",background:danger?(t.bg==="#0a0a0a"?"#3d0000":"#fdecea"):muted?"transparent":t.accent,border:`1px solid ${danger?"#c0392b":muted?t.border:t.accent}`,borderRadius:4,color:danger?"#e74c3c":muted?t.text3:"#ffffff",fontSize:small?13:15,letterSpacing:"0.05em",cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.4:1,whiteSpace:"nowrap"}}>{children}</button>
 );
-
-const Modal = ({ title, body, onConfirm, onCancel, danger, t }) => (
-  <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
-    <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 8, padding: 32, maxWidth: 400, width: "90%", boxShadow: t.shadow }}>
-      <div style={{ fontSize: 18, color: t.text, marginBottom: 12 }}>{title}</div>
-      <div style={{ fontSize: 14, color: t.text3, lineHeight: 1.7, marginBottom: 28 }}>{body}</div>
-      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+const Modal=({title,body,onConfirm,onCancel,danger,t})=>(
+  <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}}>
+    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,padding:32,maxWidth:400,width:"90%",boxShadow:t.shadow}}>
+      <div style={{fontSize:18,color:t.text,marginBottom:12}}>{title}</div>
+      <div style={{fontSize:14,color:t.text3,lineHeight:1.7,marginBottom:28}}>{body}</div>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
         <Btn muted onClick={onCancel} t={t}>Cancel</Btn>
         <Btn danger={danger} onClick={onConfirm} t={t}>Delete</Btn>
       </div>
     </div>
   </div>
 );
+const inp=t=>({width:"100%",background:t.inputBg,border:`1px solid ${t.border}`,borderRadius:4,color:t.inputText,fontSize:15,padding:"10px 13px",fontFamily:"Georgia,serif",outline:"none",boxSizing:"border-box"});
 
-// ── Style helpers ─────────────────────────────────────────────────────────
-const inp = (t) => ({ width: "100%", background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 4, color: t.inputText, fontSize: 15, padding: "10px 13px", fontFamily: "Georgia, serif", outline: "none", boxSizing: "border-box" });
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
