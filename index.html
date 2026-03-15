@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shot Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCCSaQSTL8ug14M4oK9CwJT2tW7l9mgX8o",
+      authDomain: "shot-tracker-52dea.firebaseapp.com",
+      projectId: "shot-tracker-52dea",
+      storageBucket: "shot-tracker-52dea.firebasestorage.app",
+      messagingSenderId: "506801488055",
+      appId: "1:506801488055:web:1a108d4797cebd26e1cd32",
+    };
+
+    const fbApp = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(fbApp);
+    const db = getFirestore(fbApp);
+    const DOC_REF = doc(db, "tracker", "data");
+
+    window.__db = db;
+    window.__docRef = DOC_REF;
+    window.__fbReady = true;
+    window.__getDoc = getDoc;
+    window.__setDoc = setDoc;
+    window.dispatchEvent(new Event("fb-ready"));
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0a0a; color: #e0d5c5; font-family: Georgia, serif; }
+    select option { background: #111; color: #d0c4b0; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #0a0a0a; } ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+    input, textarea, select { font-family: Georgia, serif; }
+    textarea { resize: vertical; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // ── constants ────────────────────────────────────────────────────────
+    const STATUS_OPTIONS = ["pending", "in-progress", "done"];
+    const STATUS_META = {
+      pending:       { border: "#2a2a2a", color: "#555" },
+      "in-progress": { border: "#8B2500", color: "#FF6B35" },
+      done:          { border: "#2d5a00", color: "#7BC142" },
+    };
+
+    const F1_SHOTS = [
+      { title: "THE ARRIVAL",         narration: "Silence.", description: "Storm clouds, camera cranes down through crimson atmosphere toward stationary F1 car from behind." },
+      { title: "THE REVEAL",          narration: "Silence. Let the car speak.", description: "Intimate close shot of rear wing. Carbon fibre detail. Flaps in position. Everything still." },
+      { title: "IGNITION",            narration: "Silence. Just sound and motion.", description: "Engine fires. Tyres spin. Dust explodes. Car launches. Camera pulls back alongside." },
+      { title: "BEHIND THE CAR",      narration: "Silence. Just engine sound.", description: "Camera locks behind car. Rival car visible ahead. The gap. Track as a corridor." },
+      { title: "THE WING ADJUSTS",    narration: "Silence. Let the engineering speak.", description: "Gap closing. Rear wing flaps adjust — mechanical, visible from behind. Car surges forward." },
+      { title: "THE OVERTAKE",        narration: "Do you know how this works?", description: "Our car pulls alongside, then past. Rival falls back. Comic reaction bubble on helmet." },
+      { title: "REACTION BUBBLE",     narration: "Most people don't.", description: "Zoom on overtaken helmet. Comic style question mark bubble. 2D graphic on 3D render." },
+      { title: "THE CUT",             narration: "To understand this — we don't need a racetrack.", description: "Hard cut to ordinary road. Normal car. Sunny day. Maximum visual contrast." },
+      { title: "THE HAND",            narration: "You've already felt this. Every single one of you.", description: "Child's hand out car window. Fingers flat and horizontal. Wind hitting the hand." },
+      { title: "FINGERS UP",          narration: "Push your fingers up. The wind strikes the front face of your hand. Pushes it up. That's lift. That's how airplanes fly.", description: "Hand tilts fingers upward. Hand visibly lifts with the wind." },
+      { title: "FINGERS DOWN",        narration: "Now push them down. Wind strikes again. But now it pushes your hand toward the ground. That's downforce. That's Formula 1.", description: "Hand tilts fingers downward. Hand pushes down toward car door." },
+      { title: "BACK TO THE CAR",     narration: "The wing does exactly what your hand just did. Pushes the entire car into the ground.", description: "Return to F1 wing from behind. Flaps angled down — same motion as hand. Slow zoom into wing detail." },
+      { title: "THE TURN",            narration: "At 300 kilometres per hour. Through a corner that would kill you in a road car. Downforce makes this possible.", description: "Car entering high speed corner. Camera at tyre level. Rubber and dust. Perfect exit." },
+      { title: "DOMINANT OVERTAKING", narration: "And now you understand why this car is winning.", description: "Our car overtakes one, then another. Purposeful. From behind. Engineering winning." },
+      { title: "THE REVERSAL",        narration: "Of course — everyone knows this. Every team. Every engineer. Every driver.", description: "New car appears and overtakes us cleanly. Our car is now behind. The reversal." },
+      { title: "THE FIELD",           narration: "The same wind. The same downforce. The same basic principles available to everyone.", description: "Wide shot. Multiple cars racing. All equal in frame. Same physics, all of them." },
+      { title: "THE ENGINEERS",       narration: "But do you just ignore all of that? Do you think the best aerodynamic wins automatically?", description: "Garage. Engineers at laptops. Hands on keyboards. Faces in deep focus. Data on screens." },
+      { title: "THE CLOSING",         narration: "Everyone has the same physics. But everyone has their own instincts. Their own way of reading the wind.", description: "Dawn gold light. Car alone on empty track. Moving forward into the light." },
+      { title: "THE END CARD",        narration: "And this is just one of the many things that makes an F1 car great.", description: "Car disappears. Empty track. Dust settling. Channel name appears clean and simple." },
+    ];
+
+    const makeShot = (o = {}) => ({
+      id: crypto.randomUUID(), title: "NEW SHOT", narration: "", description: "",
+      status: "pending", prompts: "", notes: "", imageUrl: "", imageData: "", ...o,
+    });
+
+    const makeProject = (name, shots = []) => ({
+      id: crypto.randomUUID(), name, createdAt: Date.now(),
+      shots: shots.length ? shots.map(s => makeShot(s)) : [makeShot()],
+    });
+
+    const defaultData = () => ({
+      projects: [makeProject("F1 Aerodynamics & Downforce", F1_SHOTS)],
+      activeId: null,
+    });
+
+    // ── image resize ─────────────────────────────────────────────────────
+    function resizeAndEncode(file, maxW = 1200, q = 0.82) {
+      return new Promise((res, rej) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const scale = Math.min(1, maxW / img.width);
+          const c = document.createElement("canvas");
+          c.width = img.width * scale; c.height = img.height * scale;
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url);
+          res(c.toDataURL("image/jpeg", q));
+        };
+        img.onerror = rej; img.src = url;
+      });
+    }
+
+    // ── Firebase hook ────────────────────────────────────────────────────
+    function useTrackerData() {
+      const [data, setData] = useState(null);
+      const [saveStatus, setSaveStatus] = useState("saved");
+      const timer = useRef(null);
+      const ready = useRef(window.__fbReady || false);
+
+      useEffect(() => {
+        const load = async () => {
+          try {
+            const snap = await window.__getDoc(window.__docRef);
+            if (snap.exists()) { setData(snap.data().payload); return; }
+          } catch(e) { console.error("Load:", e); }
+          setData(defaultData());
+        };
+        if (ready.current) { load(); }
+        else { window.addEventListener("fb-ready", load, { once: true }); }
+      }, []);
+
+      const save = useCallback((next) => {
+        clearTimeout(timer.current);
+        setSaveStatus("saving");
+        timer.current = setTimeout(async () => {
+          try {
+            await window.__setDoc(window.__docRef, { payload: next });
+            setSaveStatus("saved");
+          } catch(e) { console.error("Save:", e); setSaveStatus("error"); }
+        }, 800);
+      }, []);
+
+      const update = useCallback((fn) => {
+        setData(prev => { const next = fn(prev); save(next); return next; });
+      }, [save]);
+
+      return { data, update, saveStatus };
+    }
+
+    // ── root ─────────────────────────────────────────────────────────────
+    function App() {
+      const { data, update, saveStatus } = useTrackerData();
+      if (!data) return <Loading />;
+      const active = data.projects.find(p => p.id === data.activeId) ?? null;
+      if (!active) return (
+        <ProjectManager
+          projects={data.projects} saveStatus={saveStatus}
+          onOpen={id => update(d => ({ ...d, activeId: id }))}
+          onCreate={name => update(d => { const p = makeProject(name); return { projects: [...d.projects, p], activeId: p.id }; })}
+          onRename={(id, name) => update(d => ({ ...d, projects: d.projects.map(p => p.id === id ? { ...p, name } : p) }))}
+          onDelete={id => update(d => ({ projects: d.projects.filter(p => p.id !== id), activeId: d.activeId === id ? null : d.activeId }))}
+        />
+      );
+      return (
+        <ShotEditor project={active} saveStatus={saveStatus}
+          onBack={() => update(d => ({ ...d, activeId: null }))}
+          onUpdateShots={shots => update(d => ({ ...d, projects: d.projects.map(p => p.id === active.id ? { ...p, shots } : p) }))}
+        />
+      );
+    }
+
+    // ── project manager ──────────────────────────────────────────────────
+    function ProjectManager({ projects, saveStatus, onOpen, onCreate, onRename, onDelete }) {
+      const [newName, setNewName] = useState("");
+      const [renamingId, setRenamingId] = useState(null);
+      const [renameVal, setRenameVal] = useState("");
+      const [confirmDelete, setConfirmDelete] = useState(null);
+      const submit = () => { const n = newName.trim(); if (!n) return; onCreate(n); setNewName(""); };
+
+      return (
+        <div style={S.page}>
+          <div style={S.pmWrap}>
+            <div style={{ marginBottom: 40 }}>
+              <div style={S.eyebrow}>Animation Studio</div>
+              <h1 style={S.h1}>Projects</h1>
+              <SaveDot status={saveStatus} />
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 32 }}>
+              <input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="New project name…" style={S.input} />
+              <Btn onClick={submit} disabled={!newName.trim()}>+ Create</Btn>
+            </div>
+            {projects.length === 0 && <div style={{ color: "#333", fontSize: 13, fontStyle: "italic" }}>No projects yet.</div>}
+            {projects.map(p => {
+              const done = p.shots.filter(s => s.status === "done").length;
+              const pct = p.shots.length ? Math.round((done / p.shots.length) * 100) : 0;
+              return (
+                <div key={p.id} style={S.pmCard}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {renamingId === p.id
+                      ? <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") { onRename(p.id, renameVal.trim() || p.name); setRenamingId(null); } if (e.key === "Escape") setRenamingId(null); }}
+                          onBlur={() => { onRename(p.id, renameVal.trim() || p.name); setRenamingId(null); }}
+                          style={{ ...S.input, fontSize: 14 }} />
+                      : <div style={{ fontSize: 15, color: "#d0c4b0", cursor: "pointer" }} onClick={() => onOpen(p.id)}>{p.name}</div>
+                    }
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+                      <div style={{ flex: 1, height: 2, background: "#1a1a1a", borderRadius: 1 }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg,#8B2500,#C9A84C)", borderRadius: 1, transition: "width .4s" }} />
+                      </div>
+                      <div style={{ fontSize: 10, color: "#555", whiteSpace: "nowrap" }}>{done}/{p.shots.length} done</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0, marginLeft: 16 }}>
+                    <Btn small onClick={() => onOpen(p.id)}>Open</Btn>
+                    <Btn small muted onClick={() => { setRenamingId(p.id); setRenameVal(p.name); }}>Rename</Btn>
+                    <Btn small danger onClick={() => setConfirmDelete(p.id)}>Delete</Btn>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {confirmDelete && <Modal title="Delete project?" body={`"${projects.find(p => p.id === confirmDelete)?.name}" and all shots will be removed.`} onConfirm={() => { onDelete(confirmDelete); setConfirmDelete(null); }} onCancel={() => setConfirmDelete(null)} danger />}
+        </div>
+      );
+    }
+
+    // ── shot editor ──────────────────────────────────────────────────────
+    function ShotEditor({ project, saveStatus, onBack, onUpdateShots }) {
+      const [expanded, setExpanded] = useState(null);
+      const [filter, setFilter] = useState("all");
+      const [dragging, setDragging] = useState(null);
+      const [dragOver, setDragOver] = useState(null);
+      const [confirmDelete, setConfirmDelete] = useState(null);
+      const [uploading, setUploading] = useState({});
+
+      const shots = project.shots;
+      const upd = (id, field, value) => onUpdateShots(shots.map(s => s.id === id ? { ...s, [field]: value } : s));
+      const addShot = () => { const s = makeShot(); onUpdateShots([...shots, s]); setExpanded(s.id); };
+      const deleteShot = id => { onUpdateShots(shots.filter(s => s.id !== id)); if (expanded === id) setExpanded(null); setConfirmDelete(null); };
+
+      const handleUpload = async (id, file) => {
+        if (!file) return;
+        setUploading(u => ({ ...u, [id]: true }));
+        try {
+          const data = await resizeAndEncode(file);
+          onUpdateShots(shots.map(s => s.id === id ? { ...s, imageData: data, imageUrl: "" } : s));
+        } catch {}
+        setUploading(u => ({ ...u, [id]: false }));
+      };
+
+      const onDragStart = id => setDragging(id);
+      const onDragEnd = () => { setDragging(null); setDragOver(null); };
+      const onDrop = targetId => {
+        if (!dragging || dragging === targetId) return;
+        const arr = [...shots];
+        const fi = arr.findIndex(s => s.id === dragging);
+        const ti = arr.findIndex(s => s.id === targetId);
+        const [item] = arr.splice(fi, 1);
+        arr.splice(ti, 0, item);
+        onUpdateShots(arr);
+        setDragging(null); setDragOver(null);
+      };
+
+      const counts = { pending: shots.filter(s => s.status === "pending").length, "in-progress": shots.filter(s => s.status === "in-progress").length, done: shots.filter(s => s.status === "done").length };
+      const progress = shots.length ? Math.round((counts.done / shots.length) * 100) : 0;
+      const filtered = filter === "all" ? shots : shots.filter(s => s.status === filter);
+
+      return (
+        <div style={S.page}>
+          <div style={S.header}>
+            <div style={{ maxWidth: 880, margin: "0 auto" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                <div>
+                  <button onClick={onBack} style={S.backBtn}>← All Projects</button>
+                  <div style={S.eyebrow}>Production Pipeline</div>
+                  <div style={S.h1}>{project.name}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 28, fontWeight: "bold", color: "#C9A84C", lineHeight: 1 }}>{progress}%</div>
+                  <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em" }}>Complete</div>
+                  <SaveDot status={saveStatus} />
+                </div>
+              </div>
+              <div style={{ marginTop: 14, height: 2, background: "#1a1a1a", borderRadius: 1 }}>
+                <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg,#8B2500,#C9A84C)", borderRadius: 1, transition: "width .5s" }} />
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+                {[["all", `All ${shots.length}`], ["pending", `Pending ${counts.pending}`], ["in-progress", `In Progress ${counts["in-progress"]}`], ["done", `Done ${counts.done}`]].map(([v, l]) => (
+                  <button key={v} onClick={() => setFilter(v)} style={{ padding: "4px 12px", background: filter === v ? "#8B2500" : "transparent", border: `1px solid ${filter === v ? "#8B2500" : "#222"}`, borderRadius: 2, color: filter === v ? "#f0e6d0" : "#444", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", cursor: "pointer" }}>{l}</button>
+                ))}
+                <div style={{ flex: 1 }} />
+                <Btn small onClick={addShot}>+ Add Shot</Btn>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ maxWidth: 880, margin: "0 auto", padding: "18px 40px 60px" }}>
+            {filtered.length === 0 && <div style={{ color: "#333", fontSize: 13, fontStyle: "italic", padding: "20px 0" }}>No shots here.</div>}
+            {filtered.map((shot, idx) => {
+              const isOpen = expanded === shot.id;
+              const sm = STATUS_META[shot.status];
+              const imgSrc = shot.imageData || shot.imageUrl || null;
+              return (
+                <div key={shot.id} draggable onDragStart={() => onDragStart(shot.id)} onDragEnd={onDragEnd}
+                  onDragOver={e => { e.preventDefault(); setDragOver(shot.id); }} onDrop={() => onDrop(shot.id)}
+                  style={{ marginBottom: 6, border: `1px solid ${dragOver === shot.id ? "#8B2500" : isOpen ? "#2a0000" : "#181818"}`, borderRadius: 3, background: isOpen ? "#0f0f0f" : "#0c0c0c", opacity: dragging === shot.id ? 0.4 : 1, transition: "opacity 0.15s, border-color 0.15s" }}>
+
+                  <div onClick={() => setExpanded(isOpen ? null : shot.id)} style={{ display: "flex", alignItems: "center", padding: "11px 16px", cursor: "pointer", gap: 12 }}>
+                    <div style={{ color: "#2a2a2a", cursor: "grab", fontSize: 12, flexShrink: 0, userSelect: "none" }}>⠿</div>
+                    <div style={{ minWidth: 30, height: 30, border: "1px solid #1e1e1e", borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#C9A84C", fontFamily: "monospace", flexShrink: 0 }}>{idx + 1}</div>
+                    {imgSrc && <img src={imgSrc} style={{ width: 48, height: 30, objectFit: "cover", borderRadius: 2, flexShrink: 0, border: "1px solid #2a2a2a" }} onError={e => e.target.style.display = "none"} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, letterSpacing: "0.08em", color: "#ccc", textTransform: "uppercase" }}>{shot.title}</div>
+                      {!isOpen && <div style={{ fontSize: 11, color: "#333", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shot.description || "—"}</div>}
+                    </div>
+                    <select value={shot.status} onChange={e => { e.stopPropagation(); upd(shot.id, "status", e.target.value); }} onClick={e => e.stopPropagation()}
+                      style={{ background: "transparent", border: `1px solid ${sm.border}`, color: sm.color, padding: "3px 8px", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", borderRadius: 2, cursor: "pointer", flexShrink: 0 }}>
+                      {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    <button onClick={e => { e.stopPropagation(); setConfirmDelete(shot.id); }} style={{ background: "none", border: "none", color: "#2a2a2a", cursor: "pointer", fontSize: 14, padding: "0 4px", flexShrink: 0 }}>×</button>
+                    <div style={{ color: "#2a2a2a", fontSize: 9, flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</div>
+                  </div>
+
+                  {isOpen && (
+                    <div style={{ padding: "0 16px 16px", borderTop: "1px solid #141414" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
+                        <Field label="Shot Title">
+                          <input value={shot.title} onChange={e => upd(shot.id, "title", e.target.value)} style={{ ...S.input, textTransform: "uppercase", letterSpacing: "0.08em" }} />
+                        </Field>
+                        <Field label="Status">
+                          <select value={shot.status} onChange={e => upd(shot.id, "status", e.target.value)} style={{ ...S.input, color: STATUS_META[shot.status].color, border: `1px solid ${STATUS_META[shot.status].border}` }}>
+                            {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        </Field>
+                      </div>
+
+                      <Field label="Reference Image" mt={14}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 12px", border: "1px dashed #2a2a2a", borderRadius: 2, background: "#080808" }}>
+                            <span style={{ fontSize: 11, color: "#555" }}>{uploading[shot.id] ? "Processing…" : "Upload image from device"}</span>
+                            <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => handleUpload(shot.id, e.target.files[0])} />
+                            {!uploading[shot.id] && <span style={{ fontSize: 10, color: "#8B2500", marginLeft: "auto" }}>Browse</span>}
+                          </label>
+                          <input value={shot.imageUrl} onChange={e => { upd(shot.id, "imageUrl", e.target.value); if (e.target.value) upd(shot.id, "imageData", ""); }} placeholder="…or paste a URL (Google Drive direct link, etc.)" style={{ ...S.input, fontSize: 12 }} />
+                          {(shot.imageData || shot.imageUrl) && (
+                            <button onClick={() => { upd(shot.id, "imageData", ""); upd(shot.id, "imageUrl", ""); }} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 11, textAlign: "left", padding: 0 }}>× Remove image</button>
+                          )}
+                        </div>
+                        {imgSrc && <div style={{ marginTop: 10 }}><img src={imgSrc} style={{ maxWidth: "100%", maxHeight: 240, objectFit: "contain", borderRadius: 3, border: "1px solid #1e1e1e" }} onError={e => e.target.style.display = "none"} /></div>}
+                      </Field>
+
+                      <Field label="Scene Description" mt={14}><Textarea value={shot.description} onChange={v => upd(shot.id, "description", v)} placeholder="What happens visually in this shot…" /></Field>
+                      <Field label="Narration / VO" mt={12}><Textarea value={shot.narration} onChange={v => upd(shot.id, "narration", v)} placeholder="Voice-over or silence notes…" /></Field>
+                      <Field label="Image Prompts" mt={12}><Textarea value={shot.prompts} onChange={v => upd(shot.id, "prompts", v)} placeholder="Paste generation prompts here — one per frame…" mono /></Field>
+                      <Field label="Notes & Thoughts" mt={12}><Textarea value={shot.notes} onChange={v => upd(shot.id, "notes", v)} placeholder="Framing ideas, references, problems to solve…" /></Field>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div style={{ marginTop: 16 }}><Btn onClick={addShot}>+ Add Shot</Btn></div>
+          </div>
+
+          {confirmDelete && <Modal title="Delete shot?" body={`"${shots.find(s => s.id === confirmDelete)?.title}" will be permanently removed.`} onConfirm={() => deleteShot(confirmDelete)} onCancel={() => setConfirmDelete(null)} danger />}
+        </div>
+      );
+    }
+
+    // ── shared components ────────────────────────────────────────────────
+    const Loading = () => (
+      <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: "#333", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>Connecting to Firebase…</div>
+      </div>
+    );
+
+    const SaveDot = ({ status }) => {
+      const c = status === "saved" ? "#2d5a00" : status === "saving" ? "#6B5000" : "#8B0000";
+      return <div style={{ fontSize: 9, color: c, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4 }}>{status === "saved" ? "● Saved" : status === "saving" ? "● Saving…" : "● Save error"}</div>;
+    };
+
+    const Field = ({ label, children, mt = 0 }) => (
+      <div style={{ marginTop: mt }}>
+        <div style={{ fontSize: 9, letterSpacing: "0.25em", color: "#8B2500", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+        {children}
+      </div>
+    );
+
+    const Textarea = ({ value, onChange, placeholder, mono }) => (
+      <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3}
+        style={{ width: "100%", background: "#080808", border: "1px solid #1a1a1a", borderRadius: 2, color: "#b0a080", fontSize: 12, padding: "8px 11px", fontFamily: mono ? "monospace" : "Georgia, serif", lineHeight: 1.7, boxSizing: "border-box", outline: "none" }} />
+    );
+
+    const Btn = ({ children, onClick, disabled, small, muted, danger }) => (
+      <button onClick={onClick} disabled={disabled} style={{ padding: small ? "4px 12px" : "7px 18px", background: danger ? "#3d0000" : muted ? "transparent" : "#8B2500", border: `1px solid ${danger ? "#8B0000" : muted ? "#2a2a2a" : "#8B2500"}`, borderRadius: 2, color: danger ? "#ff6b6b" : muted ? "#555" : "#f0e6d0", fontSize: small ? 10 : 12, letterSpacing: "0.08em", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, whiteSpace: "nowrap" }}>{children}</button>
+    );
+
+    const Modal = ({ title, body, onConfirm, onCancel, danger }) => (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+        <div style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: 4, padding: 28, maxWidth: 380, width: "90%" }}>
+          <div style={{ fontSize: 14, color: "#d0c4b0", marginBottom: 10 }}>{title}</div>
+          <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6, marginBottom: 22 }}>{body}</div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Btn muted onClick={onCancel}>Cancel</Btn>
+            <Btn danger={danger} onClick={onConfirm}>Delete</Btn>
+          </div>
+        </div>
+      </div>
+    );
+
+    const S = {
+      page: { minHeight: "100vh", background: "#0a0a0a", color: "#e0d5c5", fontFamily: "Georgia, serif" },
+      header: { background: "linear-gradient(180deg,#1a0000 0%,#0a0a0a 100%)", borderBottom: "1px solid #2a0000", padding: "24px 40px 18px", position: "sticky", top: 0, zIndex: 100 },
+      pmWrap: { maxWidth: 700, margin: "0 auto", padding: "48px 40px 60px" },
+      eyebrow: { fontSize: 10, letterSpacing: "0.3em", color: "#8B2500", textTransform: "uppercase", marginBottom: 4 },
+      h1: { fontSize: 20, color: "#f0e6d0", letterSpacing: "0.04em", margin: 0, fontWeight: "normal" },
+      backBtn: { background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 11, letterSpacing: "0.1em", padding: 0, marginBottom: 10, textTransform: "uppercase" },
+      input: { width: "100%", background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 2, color: "#d0c4b0", fontSize: 13, padding: "7px 11px", fontFamily: "Georgia, serif", outline: "none", boxSizing: "border-box" },
+      pmCard: { display: "flex", alignItems: "center", padding: "16px 18px", border: "1px solid #1a1a1a", borderRadius: 3, marginBottom: 8, background: "#0d0d0d" },
+    };
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
