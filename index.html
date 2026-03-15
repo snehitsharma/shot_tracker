@@ -21,8 +21,8 @@
     };
 
     const fbApp = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(fbApp);
     const db = getFirestore(fbApp);
+    try { getAnalytics(fbApp); } catch(e) {}
     const DOC_REF = doc(db, "tracker", "data");
 
     window.__db = db;
