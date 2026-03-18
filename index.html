@@ -77,20 +77,19 @@ const F1_SHOTS = [
   {title:"REACTION BUBBLE",narration:"Most people don't.",description:"Zoom on overtaken helmet. Comic style question mark bubble. 2D graphic on 3D render."},
   {title:"THE CUT",narration:"To understand this — we don't need a racetrack.",description:"Hard cut to ordinary road. Normal car. Sunny day. Maximum visual contrast."},
   {title:"THE HAND",narration:"You've already felt this. Every single one of you.",description:"Child's hand out car window. Fingers flat and horizontal. Wind hitting the hand."},
-  {title:"FINGERS UP",narration:"Push your fingers up. The wind strikes the front face of your hand. Pushes it up. That's lift. That's how airplanes fly.",description:"Hand tilts fingers upward. Hand visibly lifts with the wind."},
-  {title:"FINGERS DOWN",narration:"Now push them down. Wind strikes again. But now it pushes your hand toward the ground. That's downforce. That's Formula 1.",description:"Hand tilts fingers downward. Hand pushes down toward car door."},
-  {title:"BACK TO THE CAR",narration:"The wing does exactly what your hand just did. Pushes the entire car into the ground.",description:"Return to F1 wing from behind. Flaps angled down — same motion as hand. Slow zoom into wing detail."},
-  {title:"THE TURN",narration:"At 300 kilometres per hour. Through a corner that would kill you in a road car. Downforce makes this possible.",description:"Car entering high speed corner. Camera at tyre level. Rubber and dust. Perfect exit."},
+  {title:"FINGERS UP",narration:"Push your fingers up. The wind strikes the front face of your hand. Pushes it up. That's lift.",description:"Hand tilts fingers upward. Hand visibly lifts with the wind."},
+  {title:"FINGERS DOWN",narration:"Now push them down. Wind strikes again. But now it pushes your hand toward the ground. That's downforce.",description:"Hand tilts fingers downward. Hand pushes down toward car door."},
+  {title:"BACK TO THE CAR",narration:"The wing does exactly what your hand just did. Pushes the entire car into the ground.",description:"Return to F1 wing from behind. Flaps angled down. Slow zoom into wing detail."},
+  {title:"THE TURN",narration:"At 300 kilometres per hour. Through a corner that would kill you in a road car.",description:"Car entering high speed corner. Camera at tyre level. Rubber and dust. Perfect exit."},
   {title:"DOMINANT OVERTAKING",narration:"And now you understand why this car is winning.",description:"Our car overtakes one, then another. Purposeful. From behind. Engineering winning."},
   {title:"THE REVERSAL",narration:"Of course — everyone knows this. Every team. Every engineer. Every driver.",description:"New car appears and overtakes us cleanly. Our car is now behind. The reversal."},
   {title:"THE FIELD",narration:"The same wind. The same downforce. The same basic principles available to everyone.",description:"Wide shot. Multiple cars racing. All equal in frame. Same physics, all of them."},
-  {title:"THE ENGINEERS",narration:"But do you just ignore all of that? Do you think the best aerodynamic wins automatically?",description:"Garage. Engineers at laptops. Hands on keyboards. Faces in deep focus. Data on screens."},
-  {title:"THE CLOSING",narration:"Everyone has the same physics. But everyone has their own instincts. Their own way of reading the wind.",description:"Dawn gold light. Car alone on empty track. Moving forward into the light."},
+  {title:"THE ENGINEERS",narration:"But do you just ignore all of that?",description:"Garage. Engineers at laptops. Hands on keyboards. Faces in deep focus. Data on screens."},
+  {title:"THE CLOSING",narration:"Everyone has the same physics. But everyone has their own instincts.",description:"Dawn gold light. Car alone on empty track. Moving forward into the light."},
   {title:"THE END CARD",narration:"And this is just one of the many things that makes an F1 car great.",description:"Car disappears. Empty track. Dust settling. Channel name appears clean and simple."},
 ];
 
-// images is an array of {id, data, url} — up to MAX_IMAGES
-const makeImage = (o={}) => ({ id: crypto.randomUUID(), data:"", url:"", ...o });
+const makeImage = (o={}) => ({ id:crypto.randomUUID(), data:"", url:"", ...o });
 const makeSubScene = (o={}) => ({ id:crypto.randomUUID(), title:"SUB-SCENE", narration:"", description:"", prompts:"", notes:"", images:[], ...o });
 const makeShot = (o={}) => ({ id:crypto.randomUUID(), title:"NEW SHOT", narration:"", description:"", status:"pending", prompts:"", notes:"", images:[], subScenes:[], ...o });
 const makeResource = (o={}) => ({ id:crypto.randomUUID(), label:"", url:"", context:"", ...o });
@@ -111,6 +110,69 @@ function resizeAndEncode(file, maxW=1200, q=0.82) {
   });
 }
 
+// ── Export helpers ────────────────────────────────────────────────────────
+function exportProjectJSON(project) {
+  // strip base64 image data, keep only URLs
+  const clean = {
+    name: project.name,
+    shots: project.shots.map(s => ({
+      title: s.title,
+      narration: s.narration,
+      description: s.description,
+      status: s.status,
+      prompts: s.prompts,
+      notes: s.notes,
+      images: (s.images||[]).map(i => ({ url: i.url||"" })),
+      subScenes: (s.subScenes||[]).map(ss => ({
+        title: ss.title,
+        narration: ss.narration,
+        description: ss.description,
+        prompts: ss.prompts,
+        notes: ss.notes,
+        images: (ss.images||[]).map(i => ({ url: i.url||"" })),
+      }))
+    })),
+    resources: (project.resources||[]).map(r => ({ label:r.label, url:r.url, context:r.context }))
+  };
+  const blob = new Blob([JSON.stringify(clean, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${project.name.replace(/[^a-z0-9]/gi,"_")}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function shotToScript(shot, subScenes) {
+  const lines = [];
+  lines.push(`SHOT: ${shot.title}`);
+  lines.push(`STATUS: ${shot.status.toUpperCase()}`);
+  if (shot.description) lines.push(`\nSCENE\n${shot.description}`);
+  if (shot.narration)   lines.push(`\nNARRATION\n"${shot.narration}"`);
+  if (shot.prompts)     lines.push(`\nIMAGE PROMPTS\n${shot.prompts}`);
+  if (shot.notes)       lines.push(`\nNOTES\n${shot.notes}`);
+  if (subScenes && subScenes.length > 0) {
+    lines.push(`\n${"─".repeat(40)}`);
+    lines.push(`SUB-SCENES (${subScenes.length})`);
+    subScenes.forEach((ss, i) => {
+      lines.push(`\n── Sub-scene ${i+1}: ${ss.title}`);
+      if (ss.description) lines.push(`SCENE\n${ss.description}`);
+      if (ss.narration)   lines.push(`NARRATION\n"${ss.narration}"`);
+      if (ss.prompts)     lines.push(`IMAGE PROMPTS\n${ss.prompts}`);
+      if (ss.notes)       lines.push(`NOTES\n${ss.notes}`);
+      if (ss.images && ss.images.some(i=>i.url)) {
+        const urls = ss.images.filter(i=>i.url).map(i=>i.url);
+        lines.push(`IMAGE REFS\n${urls.join("\n")}`);
+      }
+    });
+  }
+  return lines.join("\n");
+}
+
+function parseImport(text) { const raw=JSON.parse(text); return makeProject(raw.name||"Imported", raw.shots||[]); }
+
+// ── Firebase hook ─────────────────────────────────────────────────────────
 function useTrackerData() {
   const [data, setData] = useState(null);
   const [saveStatus, setSaveStatus] = useState("saved");
@@ -129,7 +191,7 @@ function useTrackerData() {
   const save = useCallback((next) => {
     clearTimeout(timer.current); setSaveStatus("saving");
     timer.current = setTimeout(async () => {
-      try { await window.__setDoc(window.__docRef,{payload:next}); setSaveStatus("saved"); }
+      try { await window.__setDoc(window.__docRef, {payload:next}); setSaveStatus("saved"); }
       catch(e) { console.error(e); setSaveStatus("error"); }
     }, 800);
   }, []);
@@ -137,20 +199,11 @@ function useTrackerData() {
   return {data, update, saveStatus};
 }
 
-function exportProject(project) {
-  const clean = { name:project.name, shots:project.shots.map(s=>({...s, images:s.images.map(i=>({url:i.url})), subScenes:(s.subScenes||[]).map(ss=>({...ss,images:ss.images.map(i=>({url:i.url}))})) })), resources:project.resources };
-  const blob = new Blob([JSON.stringify(clean,null,2)],{type:"application/json"});
-  const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`${project.name.replace(/\s+/g,"_")}.json`; a.click();
-}
-function parseImport(text) { const raw=JSON.parse(text); return makeProject(raw.name||"Imported",raw.shots||[]); }
-
 // ── Multi-image field ─────────────────────────────────────────────────────
 function ImagesField({images, onChange, t}) {
-  const imgs = images || [];
+  const imgs = images||[];
   const canAdd = imgs.length < MAX_IMAGES;
   const [lightbox, setLightbox] = useState(null);
-
-  const addUrl = () => onChange([...imgs, makeImage()]);
 
   const handleUpload = async (e) => {
     const files = Array.from(e.target.files).slice(0, MAX_IMAGES - imgs.length);
@@ -158,26 +211,21 @@ function ImagesField({images, onChange, t}) {
     const encoded = await Promise.all(files.map(f => resizeAndEncode(f)));
     onChange([...imgs, ...encoded.map(data => makeImage({data}))]);
   };
-
+  const addUrl = () => onChange([...imgs, makeImage()]);
   const updImg = (id, field, val) => onChange(imgs.map(i => i.id===id ? {...i,[field]:val} : i));
   const removeImg = (id) => onChange(imgs.filter(i => i.id!==id));
 
   return (
     <div>
-      {/* Grid of image slots */}
       {imgs.length > 0 && (
         <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))", gap:10, marginBottom:12}}>
           {imgs.map((img,i) => {
-            const src = img.data || img.url || null;
+            const src = img.data||img.url||null;
             return (
               <div key={img.id} style={{position:"relative", border:`1px solid ${t.border}`, borderRadius:4, overflow:"hidden", background:t.bg3}}>
                 {src
                   ? <img src={src} onClick={()=>setLightbox(src)} style={{width:"100%",height:110,objectFit:"cover",display:"block",cursor:"zoom-in"}} onError={e=>e.target.style.display="none"}/>
-                  : (
-                    <div style={{padding:"8px 10px"}}>
-                      <input value={img.url} onChange={e=>updImg(img.id,"url",e.target.value)} placeholder="Paste URL…" style={{...inp(t),fontSize:12,padding:"6px 8px"}}/>
-                    </div>
-                  )
+                  : <div style={{padding:"8px 10px"}}><input value={img.url} onChange={e=>updImg(img.id,"url",e.target.value)} placeholder="Paste URL…" style={{...inp(t),fontSize:12,padding:"6px 8px"}}/></div>
                 }
                 <div style={{display:"flex",justifyContent:"space-between",padding:"4px 6px",background:t.bg3,borderTop:`1px solid ${t.border}`}}>
                   <span style={{fontSize:11,color:t.text4}}>#{i+1}</span>
@@ -188,23 +236,20 @@ function ImagesField({images, onChange, t}) {
           })}
         </div>
       )}
-      {/* Add controls */}
       {canAdd && (
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
           <label style={{display:"inline-flex",alignItems:"center",gap:8,cursor:"pointer",padding:"8px 14px",border:`1px dashed ${t.border}`,borderRadius:4,background:t.bg3,fontSize:13,color:t.text3}}>
             Upload image{MAX_IMAGES-imgs.length>1?"s":""}
             <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={handleUpload}/>
             <span style={{color:t.accent,fontSize:12}}>Browse</span>
           </label>
           <button onClick={addUrl} style={{padding:"8px 14px",background:"transparent",border:`1px dashed ${t.border}`,borderRadius:4,color:t.text3,cursor:"pointer",fontSize:13}}>+ URL slot</button>
-          <span style={{fontSize:12,color:t.text4,alignSelf:"center"}}>{imgs.length}/{MAX_IMAGES} images</span>
+          <span style={{fontSize:12,color:t.text4}}>{imgs.length}/{MAX_IMAGES}</span>
         </div>
       )}
       {!canAdd && <div style={{fontSize:12,color:t.text4,marginTop:4}}>Maximum {MAX_IMAGES} images reached.</div>}
-
-      {/* Lightbox */}
       {lightbox && (
-        <div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,cursor:"zoom-out"}}>
+        <div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,cursor:"zoom-out"}}>
           <img src={lightbox} style={{maxWidth:"90vw",maxHeight:"90vh",objectFit:"contain",borderRadius:4}}/>
         </div>
       )}
@@ -212,39 +257,73 @@ function ImagesField({images, onChange, t}) {
   );
 }
 
+// ── Copy button ───────────────────────────────────────────────────────────
+function CopyButton({getText, label, t}) {
+  const [state, setState] = useState("idle"); // idle | copied | error
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(getText());
+      setState("copied");
+      setTimeout(() => setState("idle"), 2000);
+    } catch {
+      setState("error");
+      setTimeout(() => setState("idle"), 2000);
+    }
+  };
+  const color = state==="copied" ? "#2ecc71" : state==="error" ? "#e74c3c" : t.text3;
+  const text = state==="copied" ? "✓ Copied!" : state==="error" ? "Failed" : label;
+  return (
+    <button onClick={copy} style={{background:t.bg3, border:`1px solid ${state==="copied"?"#2ecc71":t.border}`, borderRadius:4, color, cursor:"pointer", fontSize:13, padding:"5px 14px", transition:"all 0.2s", whiteSpace:"nowrap"}}>
+      {text}
+    </button>
+  );
+}
+
 // ── Sub-scene panel ───────────────────────────────────────────────────────
-function SubScenePanel({subScenes, onUpdate, t}) {
+function SubScenePanel({shot, subScenes, onUpdate, t}) {
   const [expanded, setExpanded] = useState(null);
   const add = () => { const s=makeSubScene(); onUpdate([...subScenes,s]); setExpanded(s.id); };
-  const del = (id) => { onUpdate(subScenes.filter(s=>s.id!==id)); if(expanded===id) setExpanded(null); };
+  const del = (id) => { onUpdate(subScenes.filter(s=>s.id!==id)); if(expanded===id)setExpanded(null); };
   const upd = (id,field,val) => onUpdate(subScenes.map(s=>s.id===id?{...s,[field]:val}:s));
 
   return (
-    <div style={{marginTop:22,paddingTop:18,borderTop:`2px dashed ${t.border}`}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-        <div style={{fontSize:12,letterSpacing:"0.2em",color:t.gold,textTransform:"uppercase"}}>Sub-Scenes ({subScenes.length})</div>
-        <button onClick={add} style={{background:t.bg3,border:`1px solid ${t.border}`,borderRadius:4,color:t.text3,cursor:"pointer",fontSize:13,padding:"5px 14px"}}>+ Add Sub-Scene</button>
+    <div style={{marginTop:22, paddingTop:18, borderTop:`2px dashed ${t.border}`}}>
+      <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14, flexWrap:"wrap", gap:8}}>
+        <div style={{fontSize:12, letterSpacing:"0.2em", color:t.gold, textTransform:"uppercase"}}>Sub-Scenes ({subScenes.length})</div>
+        <div style={{display:"flex", gap:8}}>
+          {subScenes.length > 0 && (
+            <CopyButton
+              getText={() => shotToScript(shot, subScenes)}
+              label="📋 Copy all as script"
+              t={t}
+            />
+          )}
+          <button onClick={add} style={{background:t.bg3, border:`1px solid ${t.border}`, borderRadius:4, color:t.text3, cursor:"pointer", fontSize:13, padding:"5px 14px"}}>+ Add Sub-Scene</button>
+        </div>
       </div>
-      {subScenes.length===0 && <div style={{color:t.text4,fontSize:14,fontStyle:"italic",marginBottom:8}}>No sub-scenes yet. Break this shot down further.</div>}
+      {subScenes.length===0 && <div style={{color:t.text4, fontSize:14, fontStyle:"italic", marginBottom:8}}>No sub-scenes yet. Break this shot down further.</div>}
       {subScenes.map((ss,i) => {
         const isOpen = expanded===ss.id;
         const firstImg = (ss.images||[])[0];
-        const thumb = firstImg ? (firstImg.data||firstImg.url) : null;
+        const thumb = firstImg?(firstImg.data||firstImg.url):null;
         return (
-          <div key={ss.id} style={{marginBottom:8,border:`1px solid ${t.subBorder}`,borderRadius:5,background:t.subBg}}>
-            <div onClick={()=>setExpanded(isOpen?null:ss.id)} style={{display:"flex",alignItems:"center",padding:"10px 14px",cursor:"pointer",gap:12,userSelect:"none"}}>
-              <div style={{minWidth:28,height:28,border:`1px solid ${t.border}`,borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:t.gold,fontFamily:"monospace",flexShrink:0}}>{i+1}</div>
-              {thumb && <img src={thumb} style={{width:44,height:28,objectFit:"cover",borderRadius:2,flexShrink:0,border:`1px solid ${t.border}`}} onError={e=>e.target.style.display="none"}/>}
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,color:t.text2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{ss.title||"UNTITLED SUB-SCENE"}</div>
-                {!isOpen && <div style={{fontSize:12,color:t.text4,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ss.description||"—"}</div>}
+          <div key={ss.id} style={{marginBottom:8, border:`1px solid ${t.subBorder}`, borderRadius:5, background:t.subBg}}>
+            <div style={{display:"flex", alignItems:"center", padding:"10px 14px", gap:12}}>
+              <div onClick={()=>setExpanded(isOpen?null:ss.id)} style={{display:"flex",alignItems:"center",gap:12,flex:1,minWidth:0,cursor:"pointer",userSelect:"none"}}>
+                <div style={{minWidth:28,height:28,border:`1px solid ${t.border}`,borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:t.gold,fontFamily:"monospace",flexShrink:0}}>{i+1}</div>
+                {thumb && <img src={thumb} style={{width:44,height:28,objectFit:"cover",borderRadius:2,flexShrink:0,border:`1px solid ${t.border}`}} onError={e=>e.target.style.display="none"}/>}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,color:t.text2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{ss.title||"UNTITLED SUB-SCENE"}</div>
+                  {!isOpen && <div style={{fontSize:12,color:t.text4,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ss.description||"—"}</div>}
+                </div>
               </div>
+              <CopyButton getText={()=>shotToScript(ss,[])} label="📋 Copy" t={t}/>
               {(ss.images||[]).length>0 && <span style={{fontSize:11,color:t.text4,flexShrink:0}}>{ss.images.length} img{ss.images.length>1?"s":""}</span>}
-              <button onClick={e=>{e.stopPropagation();del(ss.id);}} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:3,color:t.text4,cursor:"pointer",fontSize:16,padding:"3px 9px",flexShrink:0}}>×</button>
-              <div style={{color:t.text4,fontSize:10,flexShrink:0,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▼</div>
+              <button onClick={()=>del(ss.id)} style={{background:"none",border:`1px solid ${t.border}`,borderRadius:3,color:t.text4,cursor:"pointer",fontSize:16,padding:"3px 9px",flexShrink:0}}>×</button>
+              <div onClick={()=>setExpanded(isOpen?null:ss.id)} style={{color:t.text4,fontSize:10,flexShrink:0,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s",cursor:"pointer"}}>▼</div>
             </div>
             {isOpen && (
-              <div style={{padding:"0 14px 16px",borderTop:`1px solid ${t.border2}`}}>
+              <div style={{padding:"0 14px 16px", borderTop:`1px solid ${t.border2}`}}>
                 <Field label="Sub-Scene Title" t={t} mt={14}><input value={ss.title} onChange={e=>upd(ss.id,"title",e.target.value)} style={{...inp(t),textTransform:"uppercase",letterSpacing:"0.06em"}}/></Field>
                 <Field label="Reference Images" t={t} mt={14}><ImagesField images={ss.images||[]} onChange={v=>upd(ss.id,"images",v)} t={t}/></Field>
                 <Field label="Scene Description" t={t} mt={14}><Textarea value={ss.description} onChange={v=>upd(ss.id,"description",v)} placeholder="What happens in this sub-scene…" t={t}/></Field>
@@ -263,7 +342,7 @@ function SubScenePanel({subScenes, onUpdate, t}) {
 // ── Theme toggle ──────────────────────────────────────────────────────────
 function ThemeToggle({theme,onToggle,t}) {
   return (
-    <button onClick={onToggle} style={{background:t.bg3,border:`1px solid ${t.border}`,borderRadius:24,padding:"6px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,color:t.text2,fontSize:15}}>
+    <button onClick={onToggle} style={{background:t.bg3,border:`1px solid ${t.border}`,borderRadius:24,padding:"6px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
       <span>{theme==="dark"?"☀️":"🌙"}</span>
       <span style={{fontSize:13,color:t.text3}}>{theme==="dark"?"Light":"Dark"}</span>
     </button>
@@ -275,7 +354,7 @@ function App() {
   const {data,update,saveStatus} = useTrackerData();
   const [showKC,setShowKC] = useState(false);
   if (!data) return <Loading/>;
-  const t = data.theme==="light" ? LIGHT : DARK;
+  const t = data.theme==="light"?LIGHT:DARK;
   const toggleTheme = () => update(d=>({...d,theme:d.theme==="dark"?"light":"dark"}));
   const active = data.projects.find(p=>p.id===data.activeId)??null;
   const ss = document.getElementById("ss")||(()=>{const s=document.createElement("style");s.id="ss";document.head.appendChild(s);return s;})();
@@ -430,15 +509,11 @@ function ShotEditor({project,saveStatus,t,theme,onToggleTheme,onBack,onUpdatePro
   const addShot = () => { const s=makeShot(); updShots([...shots,s]); setExpanded(s.id); };
   const deleteShot = id => { updShots(shots.filter(s=>s.id!==id)); if(expanded===id)setExpanded(null); setConfirmDelete(null); };
 
-  // Drag only from handle — isDraggingRef prevents accidental drags
-  const onHandleMouseDown = () => { isDraggingRef.current = true; };
-  const onDragStart = (e, id) => {
-    if (!isDraggingRef.current) { e.preventDefault(); return; }
-    setDragging(id);
-  };
+  const onHandleMouseDown = () => { isDraggingRef.current=true; };
+  const onDragStart = (e,id) => { if(!isDraggingRef.current){e.preventDefault();return;} setDragging(id); };
   const onDragEnd = () => { setDragging(null); setDragOver(null); isDraggingRef.current=false; };
   const onDrop = targetId => {
-    if (!dragging||dragging===targetId) return;
+    if(!dragging||dragging===targetId)return;
     const arr=[...shots];
     const fi=arr.findIndex(s=>s.id===dragging), ti=arr.findIndex(s=>s.id===targetId);
     const [item]=arr.splice(fi,1); arr.splice(ti,0,item);
@@ -463,7 +538,7 @@ function ShotEditor({project,saveStatus,t,theme,onToggleTheme,onBack,onUpdatePro
             <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
               <div style={{display:"flex",gap:10,alignItems:"center"}}>
                 <ThemeToggle theme={theme} onToggle={onToggleTheme} t={t}/>
-                <button onClick={()=>exportProject(project)} style={{fontSize:13,background:t.bg3,border:`1px solid ${t.border}`,borderRadius:4,color:t.text3,padding:"8px 16px",cursor:"pointer"}}>Export JSON</button>
+                <button onClick={()=>exportProjectJSON(project)} style={{fontSize:13,background:t.bg3,border:`1px solid ${t.border}`,borderRadius:4,color:t.text3,padding:"8px 16px",cursor:"pointer"}}>Export JSON</button>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
                 <div style={{fontSize:30,fontWeight:"bold",color:t.gold}}>{progress}%</div>
@@ -518,17 +593,10 @@ function ShotEditor({project,saveStatus,t,theme,onToggleTheme,onBack,onUpdatePro
                 onDrop={()=>onDrop(shot.id)}
                 style={{marginBottom:10,border:`1px solid ${dragOver===shot.id?t.accent:isOpen?t.accent:t.border}`,borderRadius:6,background:t.card,opacity:dragging===shot.id?0.4:1,boxShadow:t.shadow,transition:"border-color 0.15s"}}>
                 <div style={{display:"flex",alignItems:"center",padding:"14px 18px",gap:14}}>
-                  {/* DRAG HANDLE — only this triggers drag */}
-                  <div
-                    className="drag-handle"
-                    onMouseDown={onHandleMouseDown}
-                    onMouseUp={()=>{isDraggingRef.current=false;}}
-                    style={{color:t.text4,fontSize:20,flexShrink:0,userSelect:"none",padding:"2px 4px",borderRadius:3,border:`1px solid ${t.border2}`}}
-                    title="Drag to reorder"
-                  >⠿</div>
+                  <div className="drag-handle" onMouseDown={onHandleMouseDown} onMouseUp={()=>{isDraggingRef.current=false;}}
+                    style={{color:t.text4,fontSize:20,flexShrink:0,userSelect:"none",padding:"2px 6px",borderRadius:3,border:`1px solid ${t.border2}`}} title="Drag to reorder">⠿</div>
                   <div style={{minWidth:36,height:36,border:`1px solid ${t.border}`,borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:t.gold,fontFamily:"monospace",flexShrink:0,fontWeight:"bold"}}>{idx+1}</div>
                   {thumb&&<img src={thumb} style={{width:56,height:36,objectFit:"cover",borderRadius:3,flexShrink:0,border:`1px solid ${t.border}`}} onError={e=>e.target.style.display="none"}/>}
-                  {/* Clickable area for expand */}
                   <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setExpanded(isOpen?null:shot.id)}>
                     <div style={{fontSize:15,letterSpacing:"0.06em",color:t.text,textTransform:"uppercase"}}>{shot.title}</div>
                     <div style={{display:"flex",gap:8,alignItems:"center",marginTop:3,flexWrap:"wrap"}}>
@@ -554,14 +622,12 @@ function ShotEditor({project,saveStatus,t,theme,onToggleTheme,onBack,onUpdatePro
                         </select>
                       </Field>
                     </div>
-                    <Field label="Reference Images (up to 4)" t={t} mt={18}>
-                      <ImagesField images={shot.images||[]} onChange={v=>upd(shot.id,"images",v)} t={t}/>
-                    </Field>
+                    <Field label="Reference Images (up to 4)" t={t} mt={18}><ImagesField images={shot.images||[]} onChange={v=>upd(shot.id,"images",v)} t={t}/></Field>
                     <Field label="Scene Description" t={t} mt={18}><Textarea value={shot.description} onChange={v=>upd(shot.id,"description",v)} placeholder="What happens visually in this shot…" t={t}/></Field>
                     <Field label="Narration / VO" t={t} mt={14}><Textarea value={shot.narration} onChange={v=>upd(shot.id,"narration",v)} placeholder="Voice-over or silence notes…" t={t}/></Field>
                     <Field label="Image Prompts" t={t} mt={14}><Textarea value={shot.prompts} onChange={v=>upd(shot.id,"prompts",v)} placeholder="Paste generation prompts here — one per frame…" mono t={t}/></Field>
                     <Field label="Notes & Thoughts" t={t} mt={14}><Textarea value={shot.notes} onChange={v=>upd(shot.id,"notes",v)} placeholder="Framing ideas, references, problems to solve…" t={t}/></Field>
-                    <SubScenePanel subScenes={shot.subScenes||[]} onUpdate={ss=>upd(shot.id,"subScenes",ss)} t={t}/>
+                    <SubScenePanel shot={shot} subScenes={shot.subScenes||[]} onUpdate={ss=>upd(shot.id,"subScenes",ss)} t={t}/>
                   </div>
                 )}
               </div>
